@@ -49,6 +49,7 @@ void flush_input_buffer(int reason);
 void macro_add_query();
 void macro_init();
 void macro_save();
+void macro_to_string(string &s);
 
 void macro_clear_buffers();
 
