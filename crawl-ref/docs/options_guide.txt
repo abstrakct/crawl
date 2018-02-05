@@ -16,7 +16,7 @@ The contents of this text are:
 0-e     Aliases and variables.
 1-  Starting Screen.
                 name, remember_name, weapon, species, background, combo,
-                restart_after_game, restart_after_save,
+                restart_after_game, restart_after_save, name_bypasses_menu,
                 default_manual_training, autopickup_starting_ammo
 2-  File System and Sound.
                 crawl_dir, morgue_dir, save_dir, macro_dir, sound, hold_sound,
@@ -46,7 +46,8 @@ The contents of this text are:
                 tc_exclude_circle, runrest_ignore_message,
                 runrest_stop_message, runrest_safe_poison,
                 runrest_ignore_monster, rest_wait_both, rest_wait_percent,
-                explore_auto_rest, auto_exclude
+                explore_auto_rest, auto_exclude, wall_jump_move,
+                wall_jump_prompt
 3-g     Command Enhancements.
                 auto_switch, travel_open_doors, easy_unequip, equip_unequip,
                 jewellery_prompt, easy_confirm, simple_targeting,
@@ -129,8 +130,8 @@ The contents of this text are:
 5-a     All OS.
                 mouse_input, wiz_mode, explore_mode, char_set, colour,
                 display_char, feature, mon_glyph, item_glyph,
-                use_fake_player_cursor, show_player_species, fake_lang,
-                read_persist_options
+                use_fake_player_cursor, show_player_species, language,
+                fake_lang, read_persist_options
 
 5-b     DOS and Windows.
                 dos_use_background_intensity
@@ -180,6 +181,16 @@ lua) can also be conveniently hidden this way. Finally, there are some
 additional option files in the settings/ directory; these allow setting
 some options and monster glyphs to their defaults from older versions.
 See the header of the default init.txt for more details.
+
+The following files are automatically included with Crawl for easy usage, and
+can be included without any further setup:
+
+* advanced_optioneering.txt
+* dvorak_command_keys.txt
+* colemak_command_keys.txt
+* neo_command_keys.txt
+* no_vi_command_keys.txt
+* safe_move_shift.txt
 
 0-b     Options on the command line.
 ------------------------------------
@@ -319,13 +330,12 @@ weapon += (short sword |...| unarmed | random | viable), <weapon>, ...
         (List option)
         Specifying the weapon option allows you to bypass the weapon
         selection screen. Tridents, flails, cutlasses, long swords, and war
-        axes are restricted to fighters and gladiators only, quarterstaves
-        are restricted to gladiators, and unarmed is restricted to races
-        with claws. The standard weapon prompt will be shown if an illegal
-        choice for the selected background is specified. The "viable" option
-        makes a random choice from among the "good" weapons for the chosen
-        character. Specifying more than one option causes the game to
-        randomly select a weapon from the given list. The combo option
+        axes are restricted to fighters and gladiators, and quarterstaves
+        are restricted to gladiators only. The standard weapon prompt will be
+        shown if an illegal choice for the selected background is specified.
+        The "viable" option makes a random choice from among the "good" weapons
+        for the chosen character. Specifying more than one option causes the
+        game to randomly select a weapon from the given list. The combo option
         overrides (and is overriden by) this option.
 
 species += (Human |...| Vampire | random | viable), <species>, ...
@@ -353,14 +363,28 @@ combo += (HuFi . short sword | Human Monk | ...), <combo>, ...
         from the specified combos. The weapon, species, and background
         options are overriden by (and override) this option.
 
-restart_after_game = true/false
-        When a game ends, Crawl will return to the main menu if
-        restart_after_game is set. This option is enabled by default
-        for tiles builds and disabled by default for other builds.
+restart_after_game = maybe/true
+        When set to true, at the game end, crawl will return to the main menu.
+        If set to maybe, crawl will return to the main menu only if the startup
+        options don't bypass the main menu, otherwise it will exit. If set to
+        false, it will exit unconditionally. This option is set to true for
+        local tiles builds by default, and maybe by default for other builds.
+        This option is ignored for online games.
 
 restart_after_save = false
         When the game is saved, return to the main menu. This option
-        has no effect unless restart_after_game is also enabled.
+        only has an effect if restart_after_game is set to maybe or true.
+        This option is ignored for online games.
+
+newgame_after_quit = false
+        When true, if a name/combo is set, quit will do a fast restart. On this
+        setting, with restart_after_game as non-false, it may be possible to
+        exit crawl only via saving.
+
+name_bypasses_menu = true
+        When set to true, having a valid name set via options will skip the main
+        menu and jump right to a game or character selection (if there is no
+        save).
 
 default_manual_training = false
         When set to true, new characters will start with skill training
@@ -886,10 +910,11 @@ runrest_ignore_monster ^= <regex>:<distance>, <regex>:<distance>, ...
         Any monster matching the regular expression will only interrupt your
         activity if the distance between you and the monster is less than the
         specified number. E.g. with
-             runrest_ignore_monster ^= fish:3
-        big fish and giant goldfish will be considered safe for travel, explore
-        and resting as long as the distance is at least 3. If a monster matches
-        multiple expressions, its distance is compared with the first match.
+             runrest_ignore_monster ^= bat:3
+        bats, vampire bats, fire bats, and battlespheres will be considered
+        safe for travel, explore and resting as long as the distance is at
+        least 3. If a monster matches multiple expressions, its distance is
+        compared with the first match.
 
 rest_wait_both = false
         If rest_wait_both is set to true then resting will only stop
@@ -912,6 +937,17 @@ auto_exclude += <monster name>, <monster name>, ...
         automatically set centered on this monster, meaning autoexplore won't
         ever bring you into its line of sight. If the monster dies or wakes up
         while you are in sight, this exclusion is automatically removed again.
+
+wall_jump_move = true
+        If true, a WJC character (with the appropriate piety level) can wall
+        jump simply by moving against a solid feature. Otherwise, they can only
+        do so by using the (a)bility. It is never possible to wall jump off of
+        closed doors via movement.
+
+wall_jump_prompt = false
+        If true, and wall_jump_move is also true, then a WJC character can wall
+        jump via movement by moving twice against a solid feature. No effect if
+        wall_jump_move = false.
 
 3-g     Command Enhancements.
 -----------------------------
@@ -1154,8 +1190,8 @@ spell_slot ^= <regex>:<list of spell letters>
         spell matches multiple regexes, only the first is considered.
 
         Examples:
-        * if you want Haste to be placed on H:
-            spell_slot ^= Haste:H
+        * if you want Apportation to be placed on A:
+            spell_slot ^= Apportation:A
         * if you want Deflect Missiles to be placed on r normally or R if
           r is unavailable:
             spell_slot ^= Deflect:rR
@@ -2039,7 +2075,7 @@ tile_show_player_species = false
         If enabled, displays the player using the monster tile for her species,
         instead of using the normal doll and showing equipment.
 
-tile_layout_priority = minimap, inventory, gold_turn, command, spell, monster
+tile_layout_priority = minimap, inventory, command, spell, monster
         (Ordered list option)
         This option allows you to control the order in which elements are
         placed on the right of the screen, below the stat area. On small
@@ -2517,6 +2553,34 @@ show_player_species = false
 
 use_modifier_prefix_keys = true
         When true, '*' behaves as a CTRL keypress, and '/' as SHIFT.
+
+language = <two-letter language code>
+        Displays some text in the given language. Not all text in Dungeon Crawl
+        has translations in every supported language, but volunteer translators
+        have offered translations of particularly wordy text such as god and
+        monster descriptions. Text with no known translation will be displayed
+        in English. Some languages may require changing the font.
+
+        Partially supported language codes:
+        cs: Czech
+        da: Danish
+        de: German
+        el: Greek
+        es: Spanish
+        fi: Finnish
+        fr: French
+        hu: Hungarian
+        it: Italian
+        ja: Japanese
+        ko: Korean
+        lt: Lithuanian
+        lv: Latvian
+        nl: Dutch
+        pl: Polish
+        pt: Portuguese
+        ru: Russian
+        sv: Swedish
+        zh: Chinese
 
 fake_lang = <lang1>[,<lang2>[,...]]
         Set one or more fake languages, applied in the order provided (order

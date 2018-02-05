@@ -271,6 +271,9 @@ public:
                                         // two autofight commands
     bool        cloud_status;     // Whether to show a cloud status light
 
+    bool        wall_jump_prompt; // Whether to ask for confirmation before jumps.
+    bool        wall_jump_move;   // Whether to allow wall jump via movement
+
     int         fire_items_start; // index of first item for fire command
     vector<unsigned> fire_order;  // missile search order for 'f' command
 
@@ -406,9 +409,16 @@ public:
     int         assign_item_slot;   // How free slots are assigned
     maybe_bool  show_god_gift;      // Show {god gift} in item names
 
-    bool        restart_after_game; // If true, Crawl will not close on game-end
+    maybe_bool  restart_after_game; // If true, Crawl will not close on game-end
+                                    // If maybe, Crawl will restart only if the
+                                    // CL options would bring up the startup
+                                    // menu.
     bool        restart_after_save; // .. or on save
+    bool        newgame_after_quit; // override the restart_after_game behavior
+                                    // to always start a new game on quit.
 
+    bool        name_bypasses_menu; // should the menu be skipped if there is
+                                    // a name set on game start
     bool        read_persist_options; // If true, Crawl will try to load
                                       // options from c_persist.options
 
@@ -476,29 +486,31 @@ public:
     bool        tile_menu_icons; // display icons in menus?
 
     // minimap colours
-    VColour     tile_player_col;
-    VColour     tile_monster_col;
-    VColour     tile_plant_col;
-    VColour     tile_item_col;
     VColour     tile_unseen_col;
     VColour     tile_floor_col;
     VColour     tile_wall_col;
     VColour     tile_mapped_floor_col;
     VColour     tile_mapped_wall_col;
     VColour     tile_door_col;
-    VColour     tile_downstairs_col;
+    VColour     tile_item_col;
+    VColour     tile_monster_col;
+    VColour     tile_plant_col;
     VColour     tile_upstairs_col;
+    VColour     tile_downstairs_col;
+    VColour     tile_branchstairs_col;
+    VColour     tile_feature_col;
+    VColour     tile_water_col;
+    VColour     tile_lava_col;
+    VColour     tile_trap_col;
+    VColour     tile_excl_centre_col;
+    VColour     tile_excluded_col;
+    VColour     tile_player_col;
+    VColour     tile_deep_water_col;
+    VColour     tile_portal_col;
     VColour     tile_transporter_col;
     VColour     tile_transporter_landing_col;
-    VColour     tile_branchstairs_col;
-    VColour     tile_portal_col;
-    VColour     tile_feature_col;
-    VColour     tile_trap_col;
-    VColour     tile_water_col;
-    VColour     tile_deep_water_col;
-    VColour     tile_lava_col;
-    VColour     tile_excluded_col;
-    VColour     tile_excl_centre_col;
+    VColour     tile_explore_horizon_col;
+
     VColour     tile_window_col;
 #ifdef USE_TILE_LOCAL
     // font settings

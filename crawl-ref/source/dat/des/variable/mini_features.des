@@ -1178,9 +1178,9 @@ NAME:    roderic_nine_men_s_morris
 TAGS:    transparent extra decor
 DEPTH:   D, Depths, Elf
 WEIGHT:  1
-SHUFFLE: defg
-ITEM:    q:1 $, fruit q:1, royal jelly q:1, stone q:1
-NSUBST:  ' = 9:d / *:.
+ITEM:    q:1 $, ration q:1, stone q:1
+NSUBST:  ' = 2:d / 1:e / 2:f / *:.
+SHUFFLE: ddeff
 MAP
 '.......'.......'
 .xxxxxxx.xxxxxxx.
@@ -1206,8 +1206,8 @@ NAME:   roderic_three_in_a_row
 TAGS:   transparent extra decor
 DEPTH:  D, Depths, Elf
 WEIGHT: 1
-ITEM:   q:1 $, fruit q:1, stone, fruit q:1
-SUBST:  ' : TUdefg
+ITEM:   q:1 $, ration, stone
+SUBST:  ' : TTUUddeff
 MAP
 @xxxx@xxxx@
 x'...'...'x
@@ -2732,6 +2732,7 @@ NSUBST: a = 1:+ / *:x
 NSUBST: b = 1:+ / *:x
 NSUBST: c = 1:+ / *:x
 NSUBST: d = 1:+ / *:x
+KPROP:  *+ = no_tele_into
 MAP
   wwwwwwww
  wwwwwwwwww
@@ -2753,17 +2754,16 @@ TAGS:   extra
 WEIGHT: 1
 DEPTH:  D:5-, Depths, Lair, Elf, !Elf:$, Orc
 SUBST:  X = m.
- : dgn.delayed_decay(_G,'B', 'human skeleton')
-KITEM:  A : wand of digging charges:0
+ : dgn.delayed_decay(_G,'A', 'human skeleton')
 # Prevent random teleportation getting you stuck
-KPROP:  AB = no_tele_into
-KFEAT:  AB = floor
+KPROP:  A = no_tele_into
+KFEAT:  A = floor
 MAP
      ....
     .XXXX.
    .XmmmmX.
   .XmmmmmmX.
-  .XmmABmmX.
+  .Xmm.AmmX.
   .XmmmmmmX.
    .XmmmmX.
     .XXXX.
@@ -2780,8 +2780,7 @@ ENDMAP
 NAME:   supply_closet_lemuel
 DEPTH:  D:1-9
 TAGS:   no_monster_gen extra
-ITEM:   bread ration / meat ration / arrow /\
-        bolt / spear / any potion w:5
+ITEM:   ration w:20 / arrow / bolt / spear / any potion w:5
 MAP
 x+xx
 xddx
@@ -2885,7 +2884,7 @@ SUBST:  . = ..", X = xxB
 KPROP:  "B = bloody
 SUBST:  " = ., B = x
 NSUBST: . = 5:d / 10=d. / 2:e / 1:e. / *=.f
-ITEM:   meat ration / w:5 minotaur chunk
+ITEM:   ration / w:5 minotaur chunk
 : dgn.delayed_decay(_G, 'e', 'minotaur corpse')
 ITEM:   hand axe
 SUBST:  ' = .
@@ -2905,7 +2904,7 @@ NAME:   dk_vineyard_1
 DEPTH:  D:2-12
 WEIGHT: 4
 TAGS:   no_item_gen no_monster_gen uniq_vineyard extra
-ITEM:   fruit q:1 / fruit q:5
+ITEM:   ration / nothing
 NSUBST: . = 6:d
 KFEAT:  w = shallow_water
 FTILE:  .d = floor_moss / floor_grass / floor_dirt
@@ -2927,7 +2926,7 @@ NAME:   dk_vineyard_2
 DEPTH:  D:2-12
 WEIGHT: 4
 TAGS:   no_item_gen no_monster_gen uniq_vineyard extra
-ITEM:   fruit q:1 / fruit q:5
+ITEM:   ration / nothing
 NSUBST: . = 4:d
 KFEAT:  w = shallow_water
 FTILE:  .d = floor_moss / floor_grass
@@ -2944,7 +2943,7 @@ NAME:   dk_vineyard_3
 DEPTH:  D:2-12
 WEIGHT: 4
 TAGS:   no_item_gen no_monster_gen uniq_vineyard extra
-ITEM:   fruit q:1 / fruit q:5
+ITEM:   ration / nothing
 NSUBST: . = 4:d
 NSUBST: : = 5:. / *:'
 KFEAT:  w = shallow_water
@@ -2965,7 +2964,7 @@ ENDMAP
 NAME:   nicolae_wand_duel
 DEPTH:  D:6-
 WEIGHT: 1
-KITEM:  d = wand of disintegration charges:0 ident:all
+KITEM:  d = wand of disintegration ident:all
 TAGS:   no_hmirror no_vmirror no_monster_gen no_item_gen extra
 SUBST:  a = a A:4, b = b B:4
 KPROP:  ABd = bloody
@@ -3181,7 +3180,7 @@ NAME:  bh_chokoban
 TAGS:  extra decor no_exits
 TAGS:  no_rotate no_hmirror no_vmirror
 DEPTH: D:2-, !D:$, Depths:2-, !Depths:$, Lair:2-, !Lair:$
-ITEM:  fruit q:1
+ITEM:  ration w:5 / stone
 MAP
 cccccc  ccccc
 c....c  c...c

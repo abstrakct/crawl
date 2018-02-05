@@ -265,6 +265,19 @@ Magic Resistance
   able to affect you. You can get a rough idea of your current MR by pressing
   '@' or '%'.
 
+Size
+  Different species have different sizes: Spriggans and Felids are very small;
+  Halflings and Kobolds are small; Ogres and Trolls are large; Nagas and Centaurs
+  are large with a medium torso; all other species are medium-sized. Many
+  transmutations will change your size too. Size affects your evasion: the
+  smaller your character the more evasive it is. On the other hand, characters
+  of larger than medium size do not suffer the usual attack penalties when
+  standing in shallow water. Characters of smaller than medium size will have
+  problems with some larger weapons. Very small characters and large characters
+  are not able to use most types of armour. Players and monsters can only
+  constrict foes of the same size or smaller. In the dungeon you can also meet
+  tiny, very large and giant creatures.
+
 Stealth
   High stealth allows your character to move through the dungeon undetected.
   It is affected by your species, dexterity, Stealth skill, and the encumbrance
@@ -1084,9 +1097,9 @@ can be controlled. Many mutations are actually beneficial to your character, but
 there are plenty of nasty ones as well. Many mutations have multiple levels,
 each of which counts as a single mutation.
 
-You can also become mutated by overusing certain powerful enchantments,
-particularly 'Haste' and 'Invisibility', as your system absorbs too much magical
-energy. A single use of those effects will never cause dangerous levels of magical
+You can also become mutated by overusing certain powerful spells, particularly
+'Invisibility' and 'Irradiate', as your system absorbs too much magical energy.
+A single use of those effects will never cause dangerous levels of magical
 contamination, but multiple uses in short succession, or usage with existing
 contamination from other sources (e.g. from miscasting spells) can cause trouble.
 Mutations from magical contamination are almost always harmful.
@@ -1387,10 +1400,9 @@ turns up, like a dragon on the second dungeon level. These are not bugs!
 Actually, they are part of the randomness design goal. In this case, they also
 serve as additional motivation: in many situations, the OOD monster can be
 survived somehow, and the mental bond with the character will then surely grow.
-OOD monsters also help to keep players on their toes by making shallow, or
-cleared, levels still not trivial. In a similar vein, early trips to the Abyss
-are not deficits: there's more than one way out, and successfully escaping is
-exciting for anyone.
+OOD monsters also help to keep players on their toes by making shallow levels
+still not trivial. In a similar vein, early trips to the Abyss are not deficits:
+there's more than one way out, and successfully escaping is exciting for anyone.
 
 ########################################
 Appendices
@@ -1515,14 +1527,14 @@ Centaurs
 
 Ogres
   Ogres are huge, chunky creatures who are very strong and robust, but are not
-  nimble at all. Ogres mature almost as quickly as Humans. They possess a raw
-  talent for magic, but are poor at making use of magical devices.
+  nimble at all. They possess a raw talent for magic, but are poor at making
+  use of magical devices. Ogres mature almost as quickly as Humans.
 
   Their preferred methods of avoiding beatings are dodging and the use of
-  shields. Ogres find it most natural to fight using maces, polearms, staves,
-  and even their bare hands. While all sophisticated forms of missile combat are
-  too awkward for them, they are good at throwing things, in particular
-  boulders.
+  shields, but they can also use armours made from magical hides, since these
+  accommodate their large frames. Ogres are proficient at using all types of
+  melee weapons, yet all sophisticated forms of missile combat are too awkward
+  for them. They are, however, good at throwing things, in particular boulders.
 
 Trolls
   Trolls are monstrous creatures with powerful claws. They have thick, knobbly
@@ -1726,8 +1738,8 @@ Gnolls
   In order to survive with this limitation, Gnolls use their universal
   knowledge and excellent physical attributes of strength, intelligence, and
   dexterity to take advantage of every resource they find in the Dungeon. They
-  also have powerful noses have adapted to the Dungeon's scents, allowing them
-  to easily locate where treasures lay hidden.
+  also have powerful noses adapted to the Dungeon's scents, allowing them to
+  easily locate where treasures lay hidden.
 
 The Undead
 ========================================

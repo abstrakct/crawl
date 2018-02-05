@@ -177,10 +177,10 @@ void wizard_create_spec_monster_name()
         }
         ghost.job = static_cast<job_type>(job_id);
         ghost.xl = 7;
+        ghost.max_hp = 20;
+        ASSERT(debug_check_ghost(ghost));
 
         mon.set_ghost(ghost);
-
-        ghosts.push_back(ghost);
     }
 }
 
@@ -1192,9 +1192,9 @@ void debug_ghosts()
     const char c = toalower(getchm());
 
     if (c == 'c')
-        save_ghost(true);
+        save_ghosts(ghost_demon::find_ghosts(), true);
     else if (c == 'l')
-        load_ghost(false);
+        load_ghosts(ghost_demon::max_ghosts_per_level(env.absdepth0), false);
     else
         canned_msg(MSG_OK);
 }

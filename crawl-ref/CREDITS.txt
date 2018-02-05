@@ -24,6 +24,7 @@
     Haran Pilpel
     Johanna Ploog
     David Lawrence Ramsey
+    Isaac Sloat
     J. Van
     Robert Vollmert
     Enne Walker
@@ -271,6 +272,7 @@
     Jeremey Wilson
     Yelve Yakut
     Edward Z. Yang
+    Yermak
     Rob Young
     Zannick
     Zooko
@@ -294,6 +296,7 @@ The Dungeon Crawl Stone Soup development team is:
     gammafunk
     Shayne Halvorson
     Brendan Hickey
+    Aidan Holm
     Pete Hurst
     Eino Keskitalo
     Vsevolod Kozlov
@@ -315,7 +318,6 @@ The Dungeon Crawl Stone Soup development team is:
     Aaron Pixton
     David Ploog
     Sage
-    Isaac Sloat
     Marc H. Thoben
     Chris West
     Samuel Wilson

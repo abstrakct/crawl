@@ -82,10 +82,11 @@ static int food_ischunk(lua_State *ls)
     return 1;
 }
 
+// retained for script compatibility
 static int food_isfruit(lua_State *ls)
 {
     LUA_ITEM(ls, item, 1);
-    lua_pushboolean(ls, is_fruit(*item));
+    lua_pushboolean(ls, item->is_type(OBJ_FOOD, FOOD_RATION));
     return 1;
 }
 
@@ -98,8 +99,7 @@ static int food_ismeaty(lua_State *ls)
 
 static int food_isveggie(lua_State *ls)
 {
-    LUA_ITEM(ls, item, 1);
-    lua_pushboolean(ls, food_is_veggie(*item));
+    lua_pushboolean(ls, false);
     return 1;
 }
 

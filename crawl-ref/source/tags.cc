@@ -86,6 +86,8 @@
 #include "unwind.h"
 #include "version.h"
 
+vector<ghost_demon> global_ghosts; // only for reading/writing
+
 // defined in dgn-overview.cc
 extern map<branch_type, set<level_id> > stair_level;
 extern map<level_pos, shop_type> shops_present;
@@ -315,8 +317,8 @@ static void tag_read_level_tiles(reader &th);
 static void _regenerate_tile_flavour();
 static void _draw_tiles();
 
-static void tag_construct_ghost(writer &th);
-static void tag_read_ghost(reader &th);
+static void tag_construct_ghost(writer &th, vector<ghost_demon> &);
+static vector<ghost_demon> tag_read_ghost(reader &th);
 
 static void marshallGhost(writer &th, const ghost_demon &ghost);
 static ghost_demon unmarshallGhost(reader &th);
@@ -719,7 +721,6 @@ static void _fix_missing_constrictions()
 
 static void _marshall_constriction(writer &th, const actor *who)
 {
-    _marshall_as_int(th, who->held);
     marshallInt(th, who->constricted_by);
     marshallInt(th, who->escape_attempts);
 
@@ -733,7 +734,10 @@ static void _marshall_constriction(writer &th, const actor *who)
 
 static void _unmarshall_constriction(reader &th, actor *who)
 {
-    who->held = unmarshall_int_as<held_type>(th);
+#if TAG_MAJOR_VERSION == 34
+    if (th.getMinorVersion() < TAG_MINOR_NO_ACTOR_HELD)
+        unmarshallInt(th);
+#endif
     who->constricted_by = unmarshallInt(th);
     who->escape_attempts = unmarshallInt(th);
 
@@ -1165,7 +1169,7 @@ void tag_write(tag_type tagID, writer &outf)
         tag_construct_level_tiles(th);
         break;
     case TAG_GHOST:
-        tag_construct_ghost(th);
+        tag_construct_ghost(th, global_ghosts);
         break;
     default:
         // I don't know how to make that!
@@ -1296,7 +1300,7 @@ void tag_read(reader &inf, tag_type tag_id)
 #endif
         break;
     case TAG_GHOST:
-        tag_read_ghost(th);
+        global_ghosts = tag_read_ghost(th);
         break;
     default:
         // I don't know how to read that!
@@ -2248,6 +2252,20 @@ void tag_read_char(reader &th, uint8_t format, uint8_t major, uint8_t minor)
         you.explore = unmarshallBoolean(th);
 }
 
+static void _cap_mutation_at(mutation_type mut, int cap)
+{
+    if (you.mutation[mut] > cap)
+    {
+        // Don't convert real mutation levels to temporary.
+        int real_levels = you.get_base_mutation_level(mut, true, false, true);
+        you.temp_mutation[mut] = max(cap - real_levels, 0);
+
+        you.mutation[mut] = cap;
+    }
+    if (you.innate_mutation[mut] > cap)
+        you.innate_mutation[mut] = cap;
+}
+
 static void tag_read_you(reader &th)
 {
     int count;
@@ -2705,6 +2723,9 @@ static void tag_read_you(reader &th)
     if (you.attribute[ATTR_SEARING_RAY] > 3)
         you.attribute[ATTR_SEARING_RAY] = 0;
 
+    if (you.attribute[ATTR_DELAYED_FIREBALL])
+        you.attribute[ATTR_DELAYED_FIREBALL] = 0;
+
     if (th.getMinorVersion() < TAG_MINOR_STAT_LOSS_XP)
     {
         for (int i = 0; i < NUM_STATS; ++i)
@@ -2887,7 +2908,6 @@ static void tag_read_you(reader &th)
     {
         you.mutation[MUT_CARNIVOROUS] = you.innate_mutation[MUT_CARNIVOROUS];
         you.mutation[MUT_HERBIVOROUS] = you.innate_mutation[MUT_HERBIVOROUS];
-
     }
 
     if (th.getMinorVersion() < TAG_MINOR_SAPROVOROUS
@@ -2905,8 +2925,8 @@ static void tag_read_you(reader &th)
             you.mutation[MUT_FAST_METABOLISM] -= 1;
             you.innate_mutation[MUT_FAST_METABOLISM] -= 1;
 
-            you.mutation[MUT_HERBIVOROUS] -= 1;
-            you.innate_mutation[MUT_HERBIVOROUS] -= 1;
+            you.mutation[MUT_HERBIVOROUS] = 1;
+            you.innate_mutation[MUT_HERBIVOROUS] = 1;
         }
         else if (you.species == SP_HALFLING)
         {
@@ -3050,7 +3070,7 @@ static void tag_read_you(reader &th)
         if (you.mutation[MUT_SUSTAIN_ATTRIBUTES])
         {
             you.mutation[MUT_SUSTAIN_ATTRIBUTES] = 0;
-            you.innate_mutation[MUT_MUMMY_RESTORATION] = 0;
+            you.innate_mutation[MUT_SUSTAIN_ATTRIBUTES] = 0;
         }
     }
     else
@@ -3095,6 +3115,10 @@ static void tag_read_you(reader &th)
         if (you.innate_mutation[MUT_SPIT_POISON] == 2)
             you.innate_mutation[MUT_SPIT_POISON] = 1;
     }
+
+    // Carnivore and herbivore used to be 3-level mutations.
+    _cap_mutation_at(MUT_HERBIVOROUS, 1);
+    _cap_mutation_at(MUT_CARNIVOROUS, 1);
 
     // Slow regeneration split into two single-level muts:
     // * Inhibited regeneration (no regen in los of monsters, what Gh get)
@@ -3844,9 +3868,7 @@ static void tag_read_you_items(reader &th)
     if (th.getMinorVersion() < TAG_MINOR_FOOD_AUTOPICKUP)
     {
         const int oldstate = you.force_autopickup[OBJ_FOOD][NUM_FOODS];
-        you.force_autopickup[OBJ_FOOD][FOOD_MEAT_RATION] = oldstate;
-        you.force_autopickup[OBJ_FOOD][FOOD_FRUIT] = oldstate;
-        you.force_autopickup[OBJ_FOOD][FOOD_ROYAL_JELLY] = oldstate;
+        you.force_autopickup[OBJ_FOOD][FOOD_RATION] = oldstate;
 
         you.force_autopickup[OBJ_BOOKS][BOOK_MANUAL] =
             you.force_autopickup[OBJ_BOOKS][NUM_BOOKS];
@@ -4629,7 +4651,7 @@ void unmarshallItem(reader &th, item_def &item)
         if (item.base_type == OBJ_FOOD && (item.sub_type == FOOD_UNUSED
                                            || item.sub_type == FOOD_AMBROSIA))
         {
-            item.sub_type = FOOD_ROYAL_JELLY;
+            item.sub_type = FOOD_ROYAL_JELLY; // will be fixed up later
         }
     }
 
@@ -4654,7 +4676,7 @@ void unmarshallItem(reader &th, item_def &item)
                 || item.sub_type == FOOD_LYCHEE
                 || item.sub_type == FOOD_LEMON)
             {
-                item.sub_type = FOOD_FRUIT;
+                item.sub_type = FOOD_FRUIT; // will be fixed up later
             }
         }
     }
@@ -4665,7 +4687,7 @@ void unmarshallItem(reader &th, item_def &item)
             if (item.sub_type == FOOD_BEEF_JERKY
                 || item.sub_type == FOOD_PIZZA)
             {
-                item.sub_type = FOOD_ROYAL_JELLY;
+                item.sub_type = FOOD_ROYAL_JELLY; // will be fixed up later
             }
         }
     }
@@ -4817,25 +4839,10 @@ void unmarshallItem(reader &th, item_def &item)
         artefact_set_property(item, ARTP_TWISTER, 0);
     }
 
-
-    // Monsters could zap wands below zero from 0.17-a0-739-g965e8eb
-    // to 0.17-a0-912-g3e33c8f. Also check for overcharged wands, in
-    // case someone was patient enough to let it wrap around.
-    if (item.base_type == OBJ_WANDS
-        && (item.charges < 0 || item.charges > wand_max_charges(item)))
-    {
+    // Monsters could zap wands below zero from
+    // 0.17-a0-739-g965e8eb to 0.17-a0-912-g3e33c8f.
+    if (item.base_type == OBJ_WANDS && item.charges < 0)
         item.charges = 0;
-    }
-
-    // This works around a bug in Pakellas' supercharge wherein used_count
-    // wasn't reset properly, marking the wand as empty despite being
-    // fully charged. (This bug has now been fixed and was never in trunk, so
-    // this code can probably be removed from trunk.)
-    if (item.base_type == OBJ_WANDS && item.charges > 0
-        && item.used_count == ZAPCOUNT_EMPTY)
-    {
-        item.used_count = 0;
-    }
 
     if (item.base_type == OBJ_RODS && item.cursed())
         do_uncurse_item(item); // rods can't be cursed anymore
@@ -4862,6 +4869,25 @@ void unmarshallItem(reader &th, item_def &item)
         _fixup_dragon_artefact_name(item, ARTEFACT_NAME_KEY);
         _fixup_dragon_artefact_name(item, ARTEFACT_APPEAR_KEY);
     }
+
+    if (item.is_type(OBJ_FOOD, FOOD_BREAD_RATION))
+        item.sub_type = FOOD_RATION;
+    else if (item.is_type(OBJ_FOOD, FOOD_ROYAL_JELLY))
+    {
+        item.sub_type = FOOD_RATION;
+        item.quantity = max(1, div_rand_round(item.quantity, 3));
+    }
+    else if (item.is_type(OBJ_FOOD, FOOD_FRUIT))
+    {
+        item.sub_type = FOOD_RATION;
+        item.quantity = max(1, div_rand_round(item.quantity, 5));
+    }
+    if (item.is_type(OBJ_FOOD, FOOD_RATION) && item.pos == ITEM_IN_INVENTORY)
+    {
+        item.props["item_tile_name"] = "food_ration_inventory";
+        bind_item_tile(item);
+    }
+
 #endif
 
     if (is_unrandom_artefact(item))
@@ -5096,7 +5122,7 @@ void marshallMonster(writer &th, const monster& m)
     uint32_t parts = 0;
     if (mons_is_ghost_demon(m.type))
         parts |= MP_GHOST_DEMON;
-    if (m.held || m.constricting && m.constricting->size())
+    if (m.is_constricted() || m.is_constricting())
         parts |= MP_CONSTRICTION;
     for (int i = 0; i < NUM_MONSTER_SLOTS; i++)
         if (m.inv[i] != NON_ITEM)
@@ -6831,7 +6857,7 @@ static ghost_demon unmarshallGhost(reader &th)
     return ghost;
 }
 
-static void tag_construct_ghost(writer &th)
+static void tag_construct_ghost(writer &th, vector<ghost_demon> &ghosts)
 {
     // How many ghosts?
     marshallShort(th, ghosts.size());
@@ -6840,13 +6866,28 @@ static void tag_construct_ghost(writer &th)
         marshallGhost(th, ghost);
 }
 
-static void tag_read_ghost(reader &th)
+static vector<ghost_demon> tag_read_ghost(reader &th)
 {
+    vector<ghost_demon> result;
     int nghosts = unmarshallShort(th);
 
     if (nghosts < 1 || nghosts > MAX_GHOSTS)
-        return;
+        return result;
 
     for (int i = 0; i < nghosts; ++i)
-        ghosts.push_back(unmarshallGhost(th));
+        result.push_back(unmarshallGhost(th));
+    return result;
+}
+
+vector<ghost_demon> tag_read_ghosts(reader &th)
+{
+    global_ghosts.clear();
+    tag_read(th, TAG_GHOST);
+    return global_ghosts; // should use copy semantics?
+}
+
+void tag_write_ghosts(writer &th, const vector<ghost_demon> &ghosts)
+{
+    global_ghosts = ghosts;
+    tag_write(TAG_GHOST, th);
 }

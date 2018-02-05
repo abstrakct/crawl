@@ -159,10 +159,6 @@ box of beasts
 Magiczne pudełko zawierające wiele dzikich bestii. Możesz wypuścić je na
 wolność otwierając wieko.
 %%%%
-bread ration
-
-Solidna porcja czerstwego ale wciąż dobrego chleba.
-%%%%
 buckler
 
 Mała tarcza.
@@ -345,10 +341,6 @@ lychee
 
 Tropikalny owoc.
 %%%%
-meat ration
-
-Duża pożywna porcja suszonego i zakonserwowanego mięsa.
-%%%%
 mottled dragon scales
 
 Zbroja ze skóry nakrapianego smoka. Co prawda w przeciwieństwie do zbrój
@@ -528,11 +520,6 @@ rod of inaccuracy
 Ten pręt strzela potężną strugą czystej magii. Jest on bardzo trudny do
 wycelowania, a jego efekt łatwy do uniknięcia, jednak jak już w coś trafi,
 skutki są dość brutalne.
-%%%%
-royal jelly
-
-Lekko złotawa galaretowata substancja, wyjątkowo bogata w składniki odżywcze.
-Oprócz wartości pokarmowych, pozwala także odzyskać utracone siły.
 %%%%
 rune of zot
 
@@ -736,10 +723,6 @@ wand of cold
 
 Magiczny przedmiot który strzela wielki strugami zimna.
 %%%%
-wand of confusion
-
-Magiczny przedmiot który pozwala zmieszać umysł jakiejś istoty.
-%%%%
 wand of digging
 
 Magiczny przedmiot który potrafi rozpuścić nie wzmocnioną skałę, tworząc tunel.
@@ -767,11 +750,6 @@ wand of invisibility
 
 Magiczny przedmiot który czyni stworzenie na które został skierowany
 niewidzialnym.
-%%%%
-wand of lightning
-
-Magiczny przedmiot który strzela piorunami. Uwaga, odbijają się one od
-większości ścian.
 %%%%
 wand of magic darts
 

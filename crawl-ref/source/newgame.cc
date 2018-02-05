@@ -203,10 +203,6 @@ COMPILE_CHECK(ARRAYSZ(species_order) <= NUM_SPECIES);
 
 bool is_starting_species(species_type species)
 {
-    // Trunk-only until we finish the species.
-    if (species == SP_GNOLL && Version::ReleaseType != VER_ALPHA)
-        return false;
-
     return find(species_order, species_order + ARRAYSZ(species_order),
                 species) != species_order + ARRAYSZ(species_order);
 }
@@ -397,8 +393,8 @@ static void _choose_species_job(newgame_def& ng, newgame_def& ng_choice,
     {
         // Either an invalid combination was passed in through options,
         // or we messed up.
-        end(1, false,
-            "Incompatible species and background specified in options file.");
+        end(1, false, "Incompatible species and background (%s) selected.",
+                                _char_description(ng).c_str());
     }
 }
 
@@ -421,7 +417,7 @@ static bool _reroll_random(newgame_def& ng)
 #ifdef USE_TILE_WEB
         tiles.send_exit_reason("cancel");
 #endif
-        game_ended();
+        game_ended(game_exit::abort);
     }
     return toalower(c) == 'n' || c == '\t' || c == '!' || c == '#';
 }
@@ -456,7 +452,7 @@ static void _choose_char(newgame_def& ng, newgame_def& choice,
 #ifdef USE_TILE_WEB
             tiles.send_exit_reason("cancel");
 #endif
-            game_ended();
+            game_ended(game_exit::abort);
         }
     }
 #endif
@@ -1221,7 +1217,7 @@ static void _prompt_choice(int choice_type, newgame_def& ng, newgame_def& ng_cho
 #ifdef USE_TILE_WEB
                 tiles.send_exit_reason("cancel");
 #endif
-                game_ended();
+                game_ended(game_exit::abort);
             case CK_BKSP:
                 if (choice_type == C_JOB)
                     ng_choice.job = JOB_UNKNOWN;
@@ -1839,7 +1835,7 @@ static void _construct_gamemode_map_menu(const mapref_vector& maps,
         // Is this item our default map?
         else if (defaults.map == maps[i]->name)
         {
-            if (crawl_state.last_game_won)
+            if (crawl_state.last_game_exit == game_exit::win)
                 activate_next = true;
             else
                 menu->set_active_item(tmp);
@@ -2007,7 +2003,7 @@ static void _prompt_gamemode_map(newgame_def& ng, newgame_def& ng_choice,
 #ifdef USE_TILE_WEB
                 tiles.send_exit_reason("cancel");
 #endif
-                game_ended();
+                game_ended(game_exit::abort);
                 break;
             case ' ':
                 return;

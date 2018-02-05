@@ -18,6 +18,7 @@
 #include "bloodspatter.h"
 #include "branch.h"
 #include "butcher.h"
+#include "chardump.h"
 #include "cloud.h"
 #include "colour.h"
 #include "coordit.h"
@@ -1850,6 +1851,18 @@ bool yred_injury_mirror()
            && crawl_state.which_god_acting() != GOD_YREDELEMNUL;
 }
 
+bool yred_can_enslave_soul(monster* mon)
+{
+    return (mon->holiness() & MH_NATURAL
+            || mon->holiness() & MH_DEMONIC
+            || mon->holiness() & MH_HOLY)
+           && !mon->is_summoned()
+           && !mons_enslaved_body_and_soul(*mon)
+           && mon->attitude != ATT_FRIENDLY
+           && mons_intel(*mon) >= I_HUMAN
+           && mon->type != MONS_PANDEMONIUM_LORD;
+}
+
 void yred_make_enslaved_soul(monster* mon, bool force_hostile)
 {
     ASSERT(mon); // XXX: change to monster &mon
@@ -1884,7 +1897,8 @@ void yred_make_enslaved_soul(monster* mon, bool force_hostile)
             convert2bad(*wpn);
         }
     }
-    monster_drop_things(mon, false, is_holy_item);
+    monster_drop_things(mon, false, [](const item_def& item)
+                                    { return is_holy_item(item); });
     mon->remove_avatars();
 
     const monster orig = *mon;
@@ -1924,7 +1938,7 @@ void yred_make_enslaved_soul(monster* mon, bool force_hostile)
     mon->attitude = !force_hostile ? ATT_FRIENDLY : ATT_HOSTILE;
     behaviour_event(mon, ME_ALERT, force_hostile ? &you : 0);
 
-    mon->stop_constricting_all(false);
+    mon->stop_constricting_all();
     mon->stop_being_constricted();
 
     if (orig.halo_radius()
@@ -2968,19 +2982,19 @@ static bool _prompt_amount(int max, int& selected, const string& prompt)
     return false;
 }
 
-static int _collect_fruit(vector<pair<int,int> >& available_fruit)
+static int _collect_rations(vector<pair<int,int> >& available_rations)
 {
     int total = 0;
 
     for (int i = 0; i < ENDOFPACK; i++)
     {
-        if (you.inv[i].defined() && is_fruit(you.inv[i]))
+        if (you.inv[i].defined() && you.inv[i].is_type(OBJ_FOOD, FOOD_RATION))
         {
             total += you.inv[i].quantity;
-            available_fruit.emplace_back(you.inv[i].quantity, i);
+            available_rations.emplace_back(you.inv[i].quantity, i);
         }
     }
-    sort(available_fruit.begin(), available_fruit.end());
+    sort(available_rations.begin(), available_rations.end());
 
     return total;
 }
@@ -2995,20 +3009,20 @@ static void _decrease_amount(vector<pair<int, int> >& available, int amount)
         dec_inv_item_quantity(avail.second, decrease_amount);
     }
     if (total_decrease > 1)
-        mprf("%d pieces of fruit are consumed!", total_decrease);
+        mprf("%d rations are consumed!", total_decrease);
     else
-        mpr("A piece of fruit is consumed!");
+        mpr("A ration is consumed!");
 }
 
 // Create a ring or partial ring around the caster. The user is
-// prompted to select a stack of fruit, and then plants are placed on open
-// squares adjacent to the user. Of course, one piece of fruit is
+// prompted to select a stack of rations, and then plants are placed on open
+// squares adjacent to the user. Of course, two rations are
 // consumed per plant, so a complete ring may not be formed.
-bool fedhas_plant_ring_from_fruit()
+bool fedhas_plant_ring_from_rations()
 {
-    // How much fruit is available?
-    vector<pair<int, int> > collected_fruit;
-    int total_fruit = _collect_fruit(collected_fruit);
+    // How many rations is available?
+    vector<pair<int, int> > collected_rations;
+    int total_rations = _collect_rations(collected_rations);
 
     // How many adjacent open spaces are there?
     vector<coord_def> adjacent;
@@ -3021,16 +3035,16 @@ bool fedhas_plant_ring_from_fruit()
         }
     }
 
-    const int max_use = min(total_fruit, static_cast<int>(adjacent.size()));
+    const int max_use = min(total_rations/2, static_cast<int>(adjacent.size()));
 
-    // Don't prompt if we can't do anything (due to having no fruit or
+    // Don't prompt if we can't do anything (due to having no rations or
     // no squares to place plants on).
     if (max_use == 0)
     {
         if (adjacent.empty())
             mpr("No empty adjacent squares.");
         else
-            mpr("No fruit available.");
+            mpr("Not enough rations available.");
 
         return false;
     }
@@ -3098,7 +3112,7 @@ bool fedhas_plant_ring_from_fruit()
     }
 
     if (created_count)
-        _decrease_amount(collected_fruit, created_count);
+        _decrease_amount(collected_rations, 2 * created_count);
     else
         canned_msg(MSG_NOTHING_HAPPENS);
 
@@ -3319,14 +3333,14 @@ struct monster_conversion
 {
     monster_type new_type;
     int piety_cost;
-    int fruit_cost;
+    int ration_cost;
 };
 
 static const map<monster_type, monster_conversion> conversions =
 {
-    { MONS_PLANT,          { MONS_OKLOB_PLANT, 0, 1 } },
-    { MONS_BUSH,           { MONS_OKLOB_PLANT, 0, 1 } },
-    { MONS_BURNING_BUSH,   { MONS_OKLOB_PLANT, 0, 1 } },
+    { MONS_PLANT,          { MONS_OKLOB_PLANT, 0, 2 } },
+    { MONS_BUSH,           { MONS_OKLOB_PLANT, 0, 2 } },
+    { MONS_BURNING_BUSH,   { MONS_OKLOB_PLANT, 0, 2 } },
     { MONS_OKLOB_SAPLING,  { MONS_OKLOB_PLANT, 4, 0 } },
     { MONS_FUNGUS,         { MONS_WANDERING_MUSHROOM, 3, 0 } },
     { MONS_TOADSTOOL,      { MONS_WANDERING_MUSHROOM, 3, 0 } },
@@ -3411,14 +3425,14 @@ spret_type fedhas_evolve_flora(bool fail)
 
     monster_conversion upgrade = *map_find(conversions, plant->type);
 
-    vector<pair<int, int> > collected_fruit;
-    if (upgrade.fruit_cost)
+    vector<pair<int, int> > collected_rations;
+    if (upgrade.ration_cost)
     {
-        const int total_fruit = _collect_fruit(collected_fruit);
+        const int total_rations = _collect_rations(collected_rations);
 
-        if (total_fruit < upgrade.fruit_cost)
+        if (total_rations < upgrade.ration_cost)
         {
-            mpr("Not enough fruit available.");
+            mpr("Not enough rations available.");
             return SPRET_ABORT;
         }
     }
@@ -3498,8 +3512,8 @@ spret_type fedhas_evolve_flora(bool fail)
     plant->set_hit_dice(plant->get_experience_level()
                         + you.skill_rdiv(SK_INVOCATIONS));
 
-    if (upgrade.fruit_cost)
-        _decrease_amount(collected_fruit, upgrade.fruit_cost);
+    if (upgrade.ration_cost)
+        _decrease_amount(collected_rations, upgrade.ration_cost);
 
     if (upgrade.piety_cost)
     {
@@ -3975,6 +3989,7 @@ bool dithmenos_shadow_step()
         }
     }
 
+    const coord_def old_pos = you.pos();
     // XXX: This only ever fails if something's on the landing site;
     // perhaps this should be handled more gracefully.
     if (!you.move_to_pos(tgt.landing_site))
@@ -3986,6 +4001,9 @@ bool dithmenos_shadow_step()
     const actor *victim = actor_at(sdirect.target);
     mprf("You step into %s shadow.",
          apostrophise(victim->name(DESC_THE)).c_str());
+    // Using 'stepped = true' here because it's Shadow *Step*.
+    // This helps to evade splash upon landing on water.
+    moveto_location_effects(grd(old_pos), true, old_pos);
 
     return true;
 }
@@ -6370,8 +6388,8 @@ static int _apply_apocalypse(coord_def where)
         case 0:
             if (mons->antimagic_susceptible())
             {
-                message = " loses " + mons->pronoun(PRONOUN_POSSESSIVE)
-                          + " magic into the devouring truth!";
+                message = " doubts " + mons->pronoun(PRONOUN_POSSESSIVE)
+                          + " magic when faced with ultimate truth!";
                 enchantment = ENCH_ANTIMAGIC;
                 duration = 500 + random2(200);
                 num_dice = 4;
@@ -6426,21 +6444,6 @@ bool ru_apocalypse()
     noisy(30, you.pos());
     apply_area_visible(_apply_apocalypse, you.pos());
     drain_player(100, false, true);
-    return true;
-}
-
-bool pakellas_check_quick_charge(bool quiet)
-{
-    if (!enough_mp(1, quiet))
-        return false;
-
-    if (!any_items_of_type(OSEL_DIVINE_RECHARGE))
-    {
-        if (!quiet)
-            mpr(no_selectables_message(OSEL_DIVINE_RECHARGE));
-        return false;
-    }
-
     return true;
 }
 
@@ -7136,4 +7139,225 @@ void hepliaklqana_choose_identity()
 {
     _hepliaklqana_choose_name();
     _hepliaklqana_choose_gender();
+}
+
+bool wu_jian_can_wall_jump_in_principle(const coord_def& target)
+{
+    if (!have_passive(passive_t::wu_jian_wall_jump)
+        || !feat_can_wall_jump_against(grd(target))
+        || you.is_stationary()
+        || you.digging)
+    {
+        return false;
+    }
+    return true;
+}
+
+bool wu_jian_can_wall_jump(const coord_def& target, string &error_ret)
+{
+    if (target.distance_from(you.pos()) != 1)
+    {
+        error_ret = "You can only wall jump against adjacent positions.";
+        return false;
+    }
+
+    if (!wu_jian_can_wall_jump_in_principle(target))
+    {
+        if (!feat_can_wall_jump_against(grd(target)))
+        {
+            error_ret = string("You cannot wall jump against ") +
+                feature_description_at(target, false, DESC_THE, true);
+        }
+        else
+            error_ret = "";
+        return false;
+    }
+
+    auto wall_jump_direction = (you.pos() - target).sgn();
+    auto wall_jump_landing_spot = (you.pos() + wall_jump_direction
+                                   + wall_jump_direction);
+
+    monster* beholder = you.get_beholder(target);
+    if (beholder)
+    {
+        error_ret = make_stringf("You cannot move your %s away from %s to wall jump!",
+             you.foot_name(true).c_str(),
+             beholder->name(DESC_THE, true).c_str());
+        return false;
+    }
+
+    monster* fearmonger = you.get_fearmonger(wall_jump_landing_spot);
+    if (fearmonger)
+    {
+        error_ret = make_stringf("You are too afraid to wall jump closer to %s!",
+             fearmonger->name(DESC_THE, true).c_str());
+        return false;
+    }
+
+    const actor* landing_actor = actor_at(wall_jump_landing_spot);
+    if (feat_is_solid(grd(you.pos() + wall_jump_direction))
+        || !in_bounds(wall_jump_landing_spot)
+        || !you.is_habitable(wall_jump_landing_spot)
+        || landing_actor)
+    {
+        if (landing_actor)
+        {
+            error_ret = make_stringf(
+                "You have no room to wall jump there; %s is in the way.",
+                landing_actor->observable()
+                            ? landing_actor->name(DESC_THE).c_str()
+                            : "something you can't see");
+        }
+        else
+            error_ret = "You have no room to wall jump there.";
+        you.attribute[ATTR_WALL_JUMP_READY] = 0;
+        return false;
+    }
+    error_ret = "";
+    return true;
+}
+
+/**
+ * Do a walljump.
+ *
+ * This doesn't check whether there's space; see `wu_jian_can_wall_jump`.
+ * It does check whether the landing spot is safe, excluded, etc.
+ *
+ * @param targ the movement target (i.e. the wall being moved against).
+ * @return whether the jump culminated.
+ */
+bool wu_jian_do_wall_jump(coord_def targ, bool ability)
+{
+    // whether there's space in the first place is checked earlier
+    // in wu_jian_can_wall_jump.
+    auto wall_jump_direction = (you.pos() - targ).sgn();
+    auto wall_jump_landing_spot = (you.pos() + wall_jump_direction
+                                   + wall_jump_direction);
+    if (!check_moveto(wall_jump_landing_spot, "wall jump"))
+    {
+        you.turn_is_over = false;
+        if (!ability && Options.wall_jump_prompt)
+        {
+            mprf(MSGCH_PLAIN, "You take your %s off %s.",
+                 you.foot_name(true).c_str(),
+                 feature_description_at(targ, false, DESC_THE, false).c_str());
+            you.attribute[ATTR_WALL_JUMP_READY] = 0;
+        }
+        return false;
+    }
+
+    if (!ability
+        && Options.wall_jump_prompt
+        && you.attribute[ATTR_WALL_JUMP_READY] == 0)
+    {
+        you.turn_is_over = false;
+        mprf(MSGCH_PLAIN,
+             "You put your %s on %s. Move against it again to jump.",
+             you.foot_name(true).c_str(),
+             feature_description_at(targ, false, DESC_THE, false).c_str());
+        you.attribute[ATTR_WALL_JUMP_READY] = 1;
+        return false;
+    }
+
+    auto initial_position = you.pos();
+    move_player_to_grid(wall_jump_landing_spot, false);
+    if (!ability)
+        count_action(CACT_INVOKE, ABIL_WU_JIAN_WALLJUMP);
+    wu_jian_wall_jump_effects(initial_position);
+
+    if (ability)
+    {
+        // TODO: code duplication with movement...
+        // TODO: check engulfing
+        int wall_jump_modifier = (you.attribute[ATTR_SERPENTS_LASH] != 1) ? 2
+                                                                          : 1;
+
+        you.time_taken = player_speed() * wall_jump_modifier
+                         * player_movement_speed();
+        you.time_taken = div_rand_round(you.time_taken, 10);
+
+        // need to set this here in case serpent's lash isn't active
+        you.turn_is_over = true;
+        request_autopickup();
+        wu_jian_post_move_effects(true, initial_position);
+    }
+    return true;
+}
+
+bool wu_jian_wall_jump_ability()
+{
+    // This needs to be kept in sync with direct walljumping via movement.
+    ASSERT(!crawl_state.game_is_arena());
+
+    if (crawl_state.is_repeating_cmd())
+    {
+        crawl_state.cant_cmd_repeat("You can't repeat a wall jump.");
+        crawl_state.cancel_cmd_again();
+        crawl_state.cancel_cmd_repeat();
+        return false;
+    }
+    string wj_error;
+    bool has_targets = false;
+
+    for (adjacent_iterator ai(you.pos()); ai; ++ai)
+        if (wu_jian_can_wall_jump(*ai, wj_error))
+        {
+            has_targets = true;
+            break;
+        }
+
+    if (!has_targets)
+    {
+        mpr("There is nothing to wall jump against here.");
+        return false;
+    }
+
+    if (you.is_nervous())
+    {
+        mpr("You are too terrified to wall jump!");
+        return false;
+    }
+
+    // query for location:
+    dist beam;
+
+    while (1)
+    {
+        direction_chooser_args args;
+        args.restricts = DIR_TARGET;
+        args.mode = TARG_ANY;
+        args.range = 1;
+        args.needs_path = false; // TODO: overridden by hitfunc?
+        args.top_prompt = "Aiming: <white>Wall Jump</white>";
+        args.self = CONFIRM_CANCEL;
+        targeter_walljump tgt;
+        tgt.obeys_mesmerise = true;
+        args.hitfunc = &tgt;
+        {
+            // TODO: make this unnecessary
+            direction_chooser dc(beam, args);
+            dc.needs_path = false;
+            dc.choose_direction();
+        }
+        if (crawl_state.seen_hups)
+        {
+            clear_messages();
+            mpr("Cancelling wall jump due to HUP.");
+            return false;
+        }
+
+        if (!beam.isValid || beam.target == you.pos())
+            return false; // early return
+
+        if (wu_jian_can_wall_jump(beam.target, wj_error))
+            break;
+    }
+
+    if (!wu_jian_do_wall_jump(beam.target, true))
+        return false;
+
+    crawl_state.cancel_cmd_again();
+    crawl_state.cancel_cmd_repeat();
+
+    return true;
 }

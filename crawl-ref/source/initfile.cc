@@ -77,12 +77,12 @@
 #include <windows.h>
 #include <shlwapi.h>
 #include <shlobj.h>
-#elif defined (__APPLE__)
+#elif defined(TARGET_OS_MACOSX)
 extern char **NXArgv;
 #ifndef DATA_DIR_PATH
 #include <unistd.h>
 #endif
-#elif defined (__linux__)
+#elif defined(TARGET_OS_LINUX) || defined(TARGET_OS_CYGWIN)
 #include <unistd.h>
 #endif
 
@@ -91,6 +91,7 @@ system_environment SysEnv;
 game_options Options;
 
 static string _get_save_path(string subdir);
+static string _supported_language_listing();
 
 static bool _first_less(const pair<int, int> &l, const pair<int, int> &r)
 {
@@ -121,15 +122,6 @@ const vector<GameOption*> game_options::build_options_list()
         true;
 #else
         false;
-#endif
-    const bool USING_LOCAL_TILES =
-#if defined(USE_TILE_LOCAL)
-        true;
-#else
-        false;
-#endif
-#ifdef DGAMELAUNCH
-    UNUSED(USING_LOCAL_TILES);
 #endif
 
 #ifdef USE_TILE
@@ -213,6 +205,8 @@ const vector<GameOption*> game_options::build_options_list()
         new BoolGameOption(SIMPLE_NAME(dump_on_save), true),
         new BoolGameOption(SIMPLE_NAME(rest_wait_both), false),
         new BoolGameOption(SIMPLE_NAME(cloud_status), !is_tiles()),
+        new BoolGameOption(SIMPLE_NAME(wall_jump_prompt), false),
+        new BoolGameOption(SIMPLE_NAME(wall_jump_move), true),
         new BoolGameOption(SIMPLE_NAME(darken_beyond_range), true),
         new BoolGameOption(SIMPLE_NAME(dump_book_spells), true),
         new BoolGameOption(SIMPLE_NAME(arena_dump_msgs), false),
@@ -295,8 +289,9 @@ const vector<GameOption*> game_options::build_options_list()
         new BoolGameOption(SIMPLE_NAME(messaging), false),
 #endif
 #ifndef DGAMELAUNCH
+        new BoolGameOption(SIMPLE_NAME(name_bypasses_menu), true),
         new BoolGameOption(SIMPLE_NAME(restart_after_save), false),
-        new BoolGameOption(SIMPLE_NAME(restart_after_game), USING_LOCAL_TILES),
+        new BoolGameOption(SIMPLE_NAME(newgame_after_quit), false),
         new StringGameOption(SIMPLE_NAME(map_file_name), ""),
         new StringGameOption(SIMPLE_NAME(save_dir), _get_save_path("saves/")),
         new StringGameOption(SIMPLE_NAME(morgue_dir),
@@ -331,6 +326,7 @@ const vector<GameOption*> game_options::build_options_list()
         new TileColGameOption(SIMPLE_NAME(tile_downstairs_col), "#ff00ff"),
         new TileColGameOption(SIMPLE_NAME(tile_excl_centre_col), "#552266"),
         new TileColGameOption(SIMPLE_NAME(tile_excluded_col), "#552266"),
+        new TileColGameOption(SIMPLE_NAME(tile_explore_horizon_col), "#6B301B"),
         new TileColGameOption(SIMPLE_NAME(tile_feature_col), "#997700"),
         new TileColGameOption(SIMPLE_NAME(tile_floor_col), "#333333"),
         new TileColGameOption(SIMPLE_NAME(tile_item_col), "#005544"),
@@ -351,10 +347,10 @@ const vector<GameOption*> game_options::build_options_list()
         new TileColGameOption(SIMPLE_NAME(tile_window_col), "#558855"),
         new ListGameOption<string>(SIMPLE_NAME(tile_layout_priority),
 #ifdef TOUCH_UI
-            split_string(",", "minimap, command, gold_turn, inventory, "
+            split_string(",", "minimap, command, inventory, "
                               "command2, spell, ability, monster")),
 #else
-            split_string(",", "minimap, inventory, gold_turn, command, "
+            split_string(",", "minimap, inventory, command, "
                               "spell, ability, monster")),
 #endif
 #endif
@@ -687,8 +683,8 @@ static species_type _str_to_species(const string &str)
         ret = get_species_by_abbrev(str.c_str());
 
     // if we don't have a match, scan the full names
-    if (ret == SP_UNKNOWN)
-        ret = str_to_species(str);
+    if (ret == SP_UNKNOWN && str.length() >= 2)
+        ret = find_species_from_string(str, true);
 
     if (!is_starting_species(ret))
         ret = SP_UNKNOWN;
@@ -1074,6 +1070,19 @@ void game_options::reset_options()
     sc_entries             = 0;
     sc_format              = -1;
 
+#ifdef DGAMELAUNCH
+    restart_after_game = MB_FALSE;
+    restart_after_save = false;
+    newgame_after_quit = false;
+    name_bypasses_menu = true;
+#else
+#ifdef USE_TILE_LOCAL
+    restart_after_game = MB_TRUE;
+#else
+    restart_after_game = MB_MAYBE;
+#endif
+#endif
+
 #ifdef WIZARD
 #ifdef DGAMELAUNCH
     if (wiz_mode != WIZ_NO)
@@ -1456,7 +1465,7 @@ void game_options::add_feature_override(const string &text, bool prepend)
 #define COL(n, field) if (colour_t c = str_to_colour(iprops[n], BLACK)) \
                           fov.field = c;
         COL(2, dcolour);
-        COL(3, map_dcolour);
+        COL(3, unseen_dcolour);
         COL(4, seen_dcolour);
         COL(5, em_dcolour);
         COL(6, seen_em_dcolour);
@@ -2587,7 +2596,11 @@ void game_options::read_option_line(const string &str, bool runscript)
     else if (key == "language")
     {
         if (!set_lang(field.c_str()))
-            report_error("No translations for language: %s\n", field.c_str());
+        {
+            report_error("No translations for language '%s'.\n"
+                         "Languages with at least partial translation: %s",
+                         field.c_str(), _supported_language_listing().c_str());
+        }
     }
     else if (key == "fake_lang")
         set_fake_langs(field);
@@ -2807,6 +2820,10 @@ void game_options::read_option_line(const string &str, bool runscript)
         else if (field == "backward")
             assign_item_slot = SS_BACKWARD;
     }
+#ifndef DGAMELAUNCH
+    else if (key == "restart_after_game")
+        restart_after_game = read_maybe_bool(field);
+#endif
     else if (key == "show_god_gift")
     {
         if (field == "yes")
@@ -3465,6 +3482,14 @@ static const language_def lang_data[] =
     { lang_t::ZH, "zh", { "chinese", "中国的", "中國的" } },
 };
 
+static string _supported_language_listing()
+{
+    return comma_separated_fn(&lang_data[0], &lang_data[ARRAYSZ(lang_data)],
+                              [](language_def ld){return ld.code ? ld.code : "en";},
+                              ",", ",",
+                              [](language_def ld){return true;});
+}
+
 bool game_options::set_lang(const char *lc)
 {
     if (!lc)
@@ -3749,6 +3774,7 @@ enum commandline_option_type
     CLO_MAPSTAT_DUMP_DISCONNECT,
     CLO_OBJSTAT,
     CLO_ITERATIONS,
+    CLO_FORCE_MAP,
     CLO_ARENA,
     CLO_DUMP_MAPS,
     CLO_TEST,
@@ -3784,14 +3810,13 @@ enum commandline_option_type
 
 static const char *cmd_ops[] =
 {
-    "scores", "name", "species", "background", "dir", "rc",
-    "rcdir", "tscores", "vscores", "scorefile", "morgue", "macro",
-    "mapstat", "dump-disconnect", "objstat", "iters", "arena", "dump-maps",
-    "test", "script", "builddb", "help", "version", "seed", "save-version",
-    "sprint", "extra-opt-first", "extra-opt-last", "sprint-map", "edit-save",
-    "print-charset", "tutorial", "wizard", "explore", "no-save",
-    "gdb", "no-gdb", "nogdb", "throttle", "no-throttle",
-    "playable-json",
+    "scores", "name", "species", "background", "dir", "rc", "rcdir", "tscores",
+    "vscores", "scorefile", "morgue", "macro", "mapstat", "dump-disconnect",
+    "objstat", "iters", "force-map", "arena", "dump-maps", "test", "script",
+    "builddb", "help", "version", "seed", "save-version", "sprint",
+    "extra-opt-first", "extra-opt-last", "sprint-map", "edit-save",
+    "print-charset", "tutorial", "wizard", "explore", "no-save", "gdb",
+    "no-gdb", "nogdb", "throttle", "no-throttle", "playable-json",
 #ifdef USE_TILE_WEB
     "webtiles-socket", "await-connection", "print-webtiles-options",
 #endif
@@ -4082,29 +4107,31 @@ static void _write_vcolour(const string &name, VColour colour)
 
 static void _write_minimap_colours()
 {
-    _write_vcolour("tile_player_col", Options.tile_player_col);
-    _write_vcolour("tile_monster_col", Options.tile_monster_col);
-    _write_vcolour("tile_plant_col", Options.tile_plant_col);
-    _write_vcolour("tile_item_col", Options.tile_item_col);
     _write_vcolour("tile_unseen_col", Options.tile_unseen_col);
     _write_vcolour("tile_floor_col", Options.tile_floor_col);
     _write_vcolour("tile_wall_col", Options.tile_wall_col);
     _write_vcolour("tile_mapped_floor_col", Options.tile_mapped_floor_col);
     _write_vcolour("tile_mapped_wall_col", Options.tile_mapped_wall_col);
     _write_vcolour("tile_door_col", Options.tile_door_col);
-    _write_vcolour("tile_downstairs_col", Options.tile_downstairs_col);
+    _write_vcolour("tile_item_col", Options.tile_item_col);
+    _write_vcolour("tile_monster_col", Options.tile_monster_col);
+    _write_vcolour("tile_plant_col", Options.tile_plant_col);
     _write_vcolour("tile_upstairs_col", Options.tile_upstairs_col);
+    _write_vcolour("tile_downstairs_col", Options.tile_downstairs_col);
+    _write_vcolour("tile_branchstairs_col", Options.tile_branchstairs_col);
+    _write_vcolour("tile_feature_col", Options.tile_feature_col);
+    _write_vcolour("tile_water_col", Options.tile_water_col);
+    _write_vcolour("tile_lava_col", Options.tile_lava_col);
+    _write_vcolour("tile_trap_col", Options.tile_trap_col);
+    _write_vcolour("tile_excl_centre_col", Options.tile_excl_centre_col);
+    _write_vcolour("tile_excluded_col", Options.tile_excluded_col);
+    _write_vcolour("tile_player_col", Options.tile_player_col);
+    _write_vcolour("tile_deep_water_col", Options.tile_deep_water_col);
+    _write_vcolour("tile_portal_col", Options.tile_portal_col);
     _write_vcolour("tile_transporter_col", Options.tile_transporter_col);
     _write_vcolour("tile_transporter_landing_col", Options.tile_transporter_landing_col);
-    _write_vcolour("tile_branchstairs_col", Options.tile_branchstairs_col);
-    _write_vcolour("tile_portal_col", Options.tile_portal_col);
-    _write_vcolour("tile_feature_col", Options.tile_feature_col);
-    _write_vcolour("tile_trap_col", Options.tile_trap_col);
-    _write_vcolour("tile_water_col", Options.tile_water_col);
-    _write_vcolour("tile_deep_water_col", Options.tile_deep_water_col);
-    _write_vcolour("tile_lava_col", Options.tile_lava_col);
-    _write_vcolour("tile_excluded_col", Options.tile_excluded_col);
-    _write_vcolour("tile_excl_centre_col", Options.tile_excl_centre_col);
+    _write_vcolour("tile_explore_horizon_col", Options.tile_explore_horizon_col);
+
     _write_vcolour("tile_window_col", Options.tile_window_col);
 }
 
@@ -4413,11 +4440,29 @@ bool parse_args(int argc, char **argv, bool rc_only)
 #endif
             break;
 
+        case CLO_FORCE_MAP:
+#ifdef DEBUG_STATISTICS
+            if (!next_is_param)
+            {
+                fprintf(stderr, "String argument required for -%s\n", arg);
+                end(1);
+            }
+            else
+            {
+                crawl_state.force_map = next_arg;
+                nextUsed = true;
+            }
+#else
+            fprintf(stderr, "%s", dbg_stat_err);
+            end(1);
+#endif
+            break;
+
         case CLO_ARENA:
             if (!rc_only)
             {
                 Options.game.type = GAME_TYPE_ARENA;
-                Options.restart_after_game = false;
+                Options.restart_after_game = MB_FALSE;
             }
             if (next_is_param)
             {

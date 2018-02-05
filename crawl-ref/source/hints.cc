@@ -212,7 +212,7 @@ again:
 #ifdef USE_TILE_WEB
             tiles.send_exit_reason("cancel");
 #endif
-            game_ended();
+            game_ended(game_exit::abort);
         case 'X':
             cprintf("\nGoodbye!");
 #ifdef USE_TILE_WEB
@@ -784,18 +784,12 @@ static bool _advise_use_wand()
         if (!item_type_known(obj))
             return true;
 
-        // Empty wands are no good.
-        if (is_known_empty_wand(obj))
-            continue;
-
         // Can it be used to fight?
         switch (obj.sub_type)
         {
         case WAND_FLAME:
         case WAND_PARALYSIS:
-        case WAND_CONFUSION:
         case WAND_ICEBLAST:
-        case WAND_LIGHTNING:
         case WAND_ENSLAVEMENT:
         case WAND_ACID:
         case WAND_RANDOM_EFFECTS:
@@ -1155,10 +1149,8 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
              << "</w>'). Type </console>"
                 "<tiles>. Simply <w>left-click</w> on it, or press </tiles>"
                 "<w>%</w> to evoke it.\n"
-                "Until you fully identify a wand, either with a scroll of "
-                "identification or by zapping it after gaining some Evocations "
-                "skill, you won't know how many charges it has, and you'll "
-                "waste a few charges every time you evoke it.";
+                "If you find more wands of the same type, they'll merge "
+                "into this wand and add charges to it.";
         cmd.push_back(CMD_EVOKE);
         break;
 
@@ -1283,7 +1275,7 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
              << "</w>')</console>"
                 ". You can eat it by typing <w>e</w>"
                 "<tiles> or by <w>left-clicking</w> on it</tiles>"
-                ". However, it is usually best to conserve rations and fruit, "
+                ". However, it is usually best to conserve rations, "
                 "since raw meat from corpses is generally plentiful.";
         break;
 

@@ -2031,10 +2031,13 @@ static int _mons_damage(monster_type mc, int rt)
 /**
  * A short description of the given monster attack type.
  *
- * @param attack    The attack to be described; e.g. AT_HIT, AT_SPORE.
- * @return          A short description; e.g. "hit", "release spores at".
+ * @param attack      The attack to be described; e.g. AT_HIT, AT_SPORE.
+ * @param with_object Is the description being used with an object/target?
+ *                    True results in e.g. "pounce on"; false, just "pounce".
+ *                    Optional parameter, default true.
+ * @return            A short description; e.g. "hit", "release spores at".
  */
-string mon_attack_name(attack_type attack)
+string mon_attack_name(attack_type attack, bool with_object)
 {
     static const char *attack_types[] =
     {
@@ -2078,7 +2081,14 @@ string mon_attack_name(attack_type attack)
     const int verb_index = attack - AT_FIRST_ATTACK;
     dprf("verb index: %d", verb_index);
     ASSERT(verb_index < (int)ARRAYSZ(attack_types));
-    return attack_types[verb_index];
+
+    if (with_object)
+        return attack_types[verb_index];
+    else
+    {
+        return replace_all(replace_all(attack_types[verb_index], " at", ""),
+                                                                 " on", "");
+    }
 }
 
 /**
@@ -2938,8 +2948,6 @@ void define_monster(monster& mons)
         ghost.init_player_ghost(mcls == MONS_PLAYER_GHOST);
         mons.set_ghost(ghost);
         mons.ghost_init(!mons.props.exists("fake"));
-        mons.bind_melee_flags();
-        mons.bind_spell_flags();
         break;
     }
 
@@ -3559,7 +3567,7 @@ void mons_pacify(monster& mon, mon_attitude_type att, bool no_xp)
     }
 
     // End constriction.
-    mon.stop_constricting_all(false);
+    mon.stop_constricting_all();
     mon.stop_being_constricted();
 
     // Cancel fleeing and such.
@@ -5163,7 +5171,6 @@ void reset_all_monsters()
         {
             delete mons.constricting;
             mons.constricting = nullptr;
-            mons.clear_constricted();
         }
         mons.reset();
     }

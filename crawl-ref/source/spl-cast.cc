@@ -82,6 +82,7 @@
 #include "viewchar.h" // stringize_glyph
 
 static int _spell_enhancement(spell_type spell);
+static string _spell_failure_rate_description(spell_type spell);
 
 void surge_power(const int enhanced)
 {
@@ -120,11 +121,9 @@ static string _spell_base_description(spell_type spell, bool viewing)
     desc << "</" << colour_to_str(highlight) <<">";
 
     // spell fail rate, level
-    highlight = failure_rate_colour(spell);
-    desc << "<" << colour_to_str(highlight) << ">";
-    const string failure = failure_rate_to_string(raw_spell_fail(spell));
-    desc << chop_string(failure, 12);
-    desc << "</" << colour_to_str(highlight) << ">";
+    const string failure_rate = spell_failure_rate_string(spell);
+    const int width = strwidth(formatted_string::parse_string(failure_rate).tostring());
+    desc << failure_rate << string(12-width, ' ');
     desc << spell_difficulty(spell);
 
     return desc.str();
@@ -728,9 +727,11 @@ bool cast_a_spell(bool check_range, spell_type spell)
                 }
                 else
                 {
-                    mprf(MSGCH_PROMPT, "Casting: <w>%s</w>",
-                         spell_title(you.last_cast_spell));
-                    mprf(MSGCH_PROMPT, "Confirm with . or Enter, or press ? or * to list all spells.");
+                    mprf(MSGCH_PROMPT, "Casting: <w>%s</w> <lightgrey>(%s)</lightgrey>",
+                                       spell_title(you.last_cast_spell),
+                                       _spell_failure_rate_description(you.last_cast_spell).c_str());
+                    mprf(MSGCH_PROMPT, "Confirm with . or Enter, or press "
+                                       "? or * to list all spells.");
                 }
 
                 keyin = get_ch();
@@ -1057,21 +1058,6 @@ static void _try_monster_cast(spell_type spell, int powc,
 }
 #endif // WIZARD
 
-static void _maybe_cancel_repeat(spell_type spell)
-{
-#if TAG_MAJOR_VERSION == 34
-    switch (spell)
-    {
-    case SPELL_DELAYED_FIREBALL:        crawl_state.cant_cmd_repeat(make_stringf("You can't repeat %s.",
-                                                 spell_title(spell)));
-        break;
-
-    default:
-        break;
-    }
-#endif
-}
-
 static spret_type _do_cast(spell_type spell, int powc, const dist& spd,
                            bolt& beam, god_type god, bool fail);
 
@@ -1127,16 +1113,26 @@ static bool _spellcasting_aborted(spell_type spell, bool fake_spell)
     }
 
     const int severity = fail_severity(spell);
+    const string failure_rate = spell_failure_rate_string(spell);
     if (Options.fail_severity_to_confirm > 0
         && Options.fail_severity_to_confirm <= severity
         && !crawl_state.disables[DIS_CONFIRMATIONS]
         && !fake_spell)
     {
-        string prompt = make_stringf("The spell is %s to cast%s "
-                                     "Continue anyway?",
+        if (failure_rate_to_int(raw_spell_fail(spell)) == 100)
+        {
+            mprf(MSGCH_WARN, "It is impossible to cast this spell "
+                    "(100%% risk of failure)!");
+            return true;
+        }
+
+        string prompt = make_stringf("The spell is %s to cast "
+                                     "(%s risk of failure)%s",
                                      fail_severity_adjs[severity],
+                                     failure_rate.c_str(),
                                      severity > 1 ? "!" : ".");
 
+        prompt = make_stringf("%s Continue anyway?", prompt.c_str());
         if (!yesno(prompt.c_str(), false, 'n'))
         {
             canned_msg(MSG_OK);
@@ -1202,6 +1198,11 @@ static unique_ptr<targeter> _spell_targeter(spell_type spell, int pow,
                                           0, 0);
     case SPELL_INFESTATION:
         return make_unique<targeter_smite>(&you, range, 2, 2, false,
+                                           [](const coord_def& p) -> bool {
+                                              return you.pos() != p; });
+
+    case SPELL_BORGNJORS_VILE_CLUTCH:
+        return make_unique<targeter_smite>(&you, range, 1, 1, false,
                                            [](const coord_def& p) -> bool {
                                               return you.pos() != p; });
 
@@ -1369,14 +1370,10 @@ spret_type your_spells(spell_type spell, int powc, bool allow_fail,
                                    eff_pow, evoked_item, hitfunc.get());
         }
 
-        string title = "Aiming: <white>";
-        title += spell_title(spell);
-        title += "</white>";
-        if (evoked_item
-            && !item_ident(*evoked_item, ISFLAG_KNOW_PLUSES))
-        {
-            title += " <lightred>(will waste charges)</lightred>";
-        }
+        string title = make_stringf("Aiming: <w>%s</w>", spell_title(spell));
+        if (allow_fail)
+            title += make_stringf(" <lightgrey>(%s)</lightgrey>",
+                _spell_failure_rate_description(spell).c_str());
 
         direction_chooser_args args;
         args.hitfunc = hitfunc.get();
@@ -1489,9 +1486,6 @@ spret_type your_spells(spell_type spell, int powc, bool allow_fail,
     }
 
     dprf("Spell #%d, power=%d", spell, powc);
-
-    if (crawl_state.prev_cmd == CMD_CAST_SPELL && god == GOD_NO_GOD)
-        _maybe_cancel_repeat(spell);
 
     // Have to set aim first, in case the spellcast kills its first target
     if (you.props.exists("battlesphere") && allow_fail)
@@ -1624,11 +1618,6 @@ static spret_type _do_cast(spell_type spell, int powc, const dist& spd,
     case SPELL_CALL_DOWN_DAMNATION:
         return cast_smitey_damnation(powc, beam) ? SPRET_SUCCESS : SPRET_ABORT;
 
-#if TAG_MAJOR_VERSION == 34
-    case SPELL_DELAYED_FIREBALL:
-        return cast_delayed_fireball(fail);
-#endif
-
     // LOS spells
 
     // Beogh ability, no failure.
@@ -1690,6 +1679,9 @@ static spret_type _do_cast(spell_type spell, int powc, const dist& spd,
 
     case SPELL_IGNITION:
         return cast_ignition(&you, powc, fail);
+
+    case SPELL_BORGNJORS_VILE_CLUTCH:
+        return cast_borgnjors_vile_clutch(powc, beam, fail);
 
     // Summoning spells, and other spells that create new monsters.
     // If a god is making you cast one of these spells, any monsters
@@ -1797,9 +1789,6 @@ static spret_type _do_cast(spell_type spell, int powc, const dist& spd,
     case SPELL_ENGLACIATION:
         return cast_englaciation(powc, fail);
 
-    case SPELL_CONTROL_UNDEAD:
-        return mass_enchantment(ENCH_CHARM, powc, fail);
-
     case SPELL_AURA_OF_ABJURATION:
         return cast_aura_of_abjuration(powc, fail);
 
@@ -1843,9 +1832,6 @@ static spret_type _do_cast(spell_type spell, int powc, const dist& spd,
 
     case SPELL_OZOCUBUS_ARMOUR:
         return ice_armour(powc, fail);
-
-    case SPELL_CIGOTUVIS_EMBRACE:
-        return corpse_armour(powc, fail);
 
     case SPELL_SILENCE:
         return cast_silence(powc, fail);
@@ -2086,6 +2072,25 @@ string spell_hunger_string(spell_type spell)
     return hunger_cost_string(spell_hunger(spell));
 }
 
+string spell_failure_rate_string(spell_type spell)
+{
+    const string failure = failure_rate_to_string(raw_spell_fail(spell));
+    const string colour = colour_to_str(failure_rate_colour(spell));
+    return make_stringf("<%s>%s</%s>",
+            colour.c_str(), failure.c_str(), colour.c_str());
+}
+
+static string _spell_failure_rate_description(spell_type spell)
+{
+    const string failure = failure_rate_to_string(raw_spell_fail(spell));
+    const char *severity_adj = fail_severity_adjs[fail_severity(spell)];
+    const string colour = colour_to_str(failure_rate_colour(spell));
+    const char *col = colour.c_str();
+
+    return make_stringf("<%s>%s</%s>; <%s>%s</%s> risk of failure",
+            col, severity_adj, col, col, failure.c_str(), col);
+}
+
 string spell_noise_string(spell_type spell, int chop_wiz_display_width)
 {
     const int casting_noise = spell_noise(spell);
@@ -2281,6 +2286,9 @@ const set<spell_type> removed_spells =
     SPELL_PHASE_SHIFT,
     SPELL_MASS_CONFUSION,
     SPELL_CURE_POISON,
+    SPELL_CONTROL_UNDEAD,
+    SPELL_CIGOTUVIS_EMBRACE,
+    SPELL_DELAYED_FIREBALL,
 #endif
 };
 

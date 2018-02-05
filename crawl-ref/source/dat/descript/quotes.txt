@@ -978,16 +978,6 @@ book
  And lo! the Press was found at last!”
     -John Greenleaf Whittier, _The Library_, st. 4.
 %%%%
-bread ration
-
-“It is further reported that in the provinces [Caesar] gave banquets constantly
-in two dining halls, in one of which his officers or Greek companions, in the
-other Roman civilians and the more distinguished of the provincials reclined at
-table. He was so punctilious and strict in the management of his household, in
-small matters as well as in those of greater importance, that he put his baker
-in irons for serving him with one kind of bread and his guests with another...”
-    -Suetonius, _De Vita Caesarum, Divus Iulius_. 110 CE.
-%%%%
 broad axe
 
 “Weapon, shapely, naked, wan!
@@ -2220,6 +2210,16 @@ rapier
     -Albius Tibullus, _Elegies_ I, xi. ca. 25 B.C.
      trans. James Grainger, 1822.
 %%%%
+ration
+
+“It is further reported that in the provinces [Caesar] gave banquets constantly
+in two dining halls, in one of which his officers or Greek companions, in the
+other Roman civilians and the more distinguished of the provincials reclined at
+table. He was so punctilious and strict in the management of his household, in
+small matters as well as in those of greater importance, that he put his baker
+in irons for serving him with one kind of bread and his guests with another...”
+    -Suetonius, _De Vita Caesarum, Divus Iulius_. 110 CE.
+%%%%
 reaper
 
 “All our times have come.
@@ -2457,10 +2457,6 @@ scroll of noise
 <scroll>
 %%%%
 scroll of random uselessness
-
-<scroll>
-%%%%
-scroll of recharging
 
 <scroll>
 %%%%
@@ -3139,10 +3135,6 @@ wand of acid
 
 <wand>
 %%%%
-wand of confusion
-
-<wand>
-%%%%
 wand of digging
 
 <Passwall spell>
@@ -3160,10 +3152,6 @@ wand of flame
 <wand>
 %%%%
 wand of iceblast
-
-<wand>
-%%%%
-wand of lightning
 
 <wand>
 %%%%

@@ -16,6 +16,7 @@
 #include <sstream>
 #include <string>
 
+#include "ability.h"
 #include "adjust.h"
 #include "areas.h"
 #include "art-enum.h"
@@ -25,6 +26,7 @@
 #include "cloud.h" // cloud_type_name
 #include "clua.h"
 #include "database.h"
+#include "dbg-util.h"
 #include "decks.h"
 #include "delay.h"
 #include "describe-spells.h"
@@ -872,7 +874,7 @@ static bool _could_set_training_target(const item_def &item, bool ignore_current
     if (skill == SK_NONE)
         return false;
 
-    const int target = _item_training_target(item);
+    const int target = min(_item_training_target(item), 270);
 
     return target && you.can_train[skill]
        && you.skill(skill, 10, false, false, false) < target
@@ -892,13 +894,14 @@ static string _your_skill_desc(skill_type skill, bool show_target_button, int sc
     if (!crawl_state.need_save || skill == SK_NONE)
         return "";
     string target_button_desc = "";
+    int min_scaled_target = min(scaled_target, 270);
     if (show_target_button &&
-            you.get_training_target(skill) < scaled_target)
+            you.get_training_target(skill) < min_scaled_target)
     {
         target_button_desc = make_stringf(
             "; use <white>(s)</white> to set %d.%d as a target for %s.",
-                                    scaled_target / 10, scaled_target % 10,
-                                    skill_name(skill));
+                                min_scaled_target / 10, min_scaled_target % 10,
+                                skill_name(skill));
     }
     int you_skill_temp = you.skill(skill, 10, false, true, true);
     int you_skill = you.skill(skill, 10, false, false, false);
@@ -922,6 +925,7 @@ static string _skill_target_desc(skill_type skill, int scaled_target,
                                         unsigned int training)
 {
     string description = "";
+    scaled_target = min(scaled_target, 270);
 
     const bool max_training = (training == 100);
     const bool hypothetical = !crawl_state.need_save ||
@@ -1001,8 +1005,8 @@ static void _append_weapon_stats(string &description, const item_def &item)
 
     if (!is_useless_item(item))
     {
-        description += "\n    " +
-            _your_skill_desc(skill, could_set_target, mindelay_skill);
+        description += "\n    " + _your_skill_desc(skill,
+                    could_set_target && in_inventory(item), mindelay_skill);
     }
 
     if (could_set_target)
@@ -1433,7 +1437,8 @@ static string _describe_ammo(const item_def &item)
         if (!is_useless_item(item))
         {
             description += "\n    " +
-                    _your_skill_desc(SK_THROWING, could_set_target, target_skill);
+                    _your_skill_desc(SK_THROWING,
+                        could_set_target && in_inventory(item), target_skill);
         }
         if (could_set_target)
             _append_skill_target_desc(description, SK_THROWING, target_skill);
@@ -1481,8 +1486,8 @@ static string _describe_armour(const item_def &item, bool verbose)
                 if (crawl_state.need_save)
                 {
                     description += "\n                            "
-                        + _your_skill_desc(SK_SHIELDS, could_set_target,
-                                            target_skill);
+                        + _your_skill_desc(SK_SHIELDS,
+                          could_set_target && in_inventory(item), target_skill);
                 }
                 else
                     description += "\n";
@@ -2005,29 +2010,6 @@ string get_item_description(const item_def &item, bool verbose,
         description << _describe_ammo(item);
         break;
 
-    case OBJ_WANDS:
-    {
-        const bool known_empty = is_known_empty_wand(item);
-
-        if (!item_ident(item, ISFLAG_KNOW_PLUSES) && !known_empty)
-        {
-            description << "\nIf evoked without being fully identified,"
-                           " several charges will be wasted out of"
-                           " unfamiliarity with the device.";
-        }
-
-
-        if (item_type_known(item) && !item_ident(item, ISFLAG_KNOW_PLUSES))
-        {
-            description << "\nIt can have at most " << wand_max_charges(item)
-                        << " charges.";
-        }
-
-        if (known_empty)
-            description << "\nUnfortunately, it has no charges left.";
-        break;
-    }
-
     case OBJ_CORPSES:
         if (item.sub_type == CORPSE_SKELETON)
             break;
@@ -2038,10 +2020,6 @@ string get_item_description(const item_def &item, bool verbose,
         {
             switch (determine_chunk_effect(item))
             {
-            case CE_MUTAGEN:
-                description << "\n\nEating this meat will cause random "
-                               "mutations.";
-                break;
             case CE_NOXIOUS:
                 description << "\n\nThis meat is toxic.";
                 break;
@@ -2118,6 +2096,7 @@ string get_item_description(const item_def &item, bool verbose,
     case OBJ_ORBS:
     case OBJ_GOLD:
     case OBJ_RUNES:
+    case OBJ_WANDS:
 #if TAG_MAJOR_VERSION == 34
     case OBJ_RODS:
 #endif
@@ -2157,7 +2136,7 @@ string get_item_description(const item_def &item, bool verbose,
         }
     }
 
-    if (god_hates_item_handling(item))
+    if (god_hates_item(item))
     {
         description << "\n\n" << uppercase_first(god_name(you.religion))
                     << " disapproves of the use of such an item.";
@@ -2511,8 +2490,10 @@ void target_item(item_def &item)
         return;
 
     you.set_training_target(skill, target, true);
-    you.train[skill] = TRAINING_ENABLED;
-    you.train_alt[skill] = TRAINING_ENABLED;
+    // ensure that the skill is at least enabled
+    if (you.train[skill] == TRAINING_DISABLED)
+        you.train[skill] = TRAINING_ENABLED;
+    you.train_alt[skill] = you.train[skill];
     reset_training();
 }
 
@@ -2865,7 +2846,8 @@ static bool _get_spell_description(const spell_type spell,
     if (!quote.empty())
         description += "\n" + quote;
 
-    if (item && item->base_type == OBJ_BOOKS && in_inventory(*item)
+    if (item && item->base_type == OBJ_BOOKS
+        && (in_inventory(*item) || item->pos == you.pos())
         && !you.has_spell(spell) && you_can_memorise(spell))
     {
         description += "\n(M)emorise this spell.\n";
@@ -2923,6 +2905,24 @@ void describe_spell(spell_type spelled, const monster_info *mon_owner,
         redraw_screen();
     }
 }
+
+/**
+ * Examine a given ability. List its description and details.
+ *
+ * @param ability   The ability in question.
+ */
+void describe_ability(ability_type ability)
+{
+#ifdef USE_TILE_WEB
+    tiles_crt_control show_as_menu(CRT_MENU, "describe_ability");
+#endif
+
+    print_description(get_ability_desc(ability));
+
+    mouse_control mc(MOUSE_MODE_MORE);
+    getchm();// description screen wouldn't show up without getchm()
+}
+
 
 static string _describe_draconian(const monster_info& mi)
 {
@@ -3058,6 +3058,8 @@ static const char* _get_resist_name(mon_resist_flags res_type)
         return "negative energy";
     case MR_RES_DAMNATION:
         return "damnation";
+    case MR_RES_WIND:
+        return "wind";
     default:
         return "buggy resistance";
     }
@@ -3267,7 +3269,7 @@ static string _monster_attacks_description(const monster_info& mi)
         {
             attack_descs.push_back(
                 make_stringf("%s for up to %d fire damage",
-                             mon_attack_name(attack.type).c_str(),
+                             mon_attack_name(attack.type, false).c_str(),
                              flavour_damage(attack.flavour, mi.hd, false)));
             continue;
         }
@@ -3286,7 +3288,7 @@ static string _monster_attacks_description(const monster_info& mi)
         attack_descs.push_back(
             make_stringf("%s%s%s%s %s%s",
                          _special_flavour_prefix(attack.flavour),
-                         mon_attack_name(attack.type).c_str(),
+                         mon_attack_name(attack.type, false).c_str(),
                          _flavour_range_desc(attack.flavour),
                          count_desc.c_str(),
                          damage_desc.c_str(),
@@ -3466,6 +3468,26 @@ static void _describe_monster_mr(const monster_info& mi, ostringstream &result)
     result << "\n";
 }
 
+// Size adjectives
+const char* const size_adj[] =
+{
+    "tiny",
+    "very small",
+    "small",
+    "medium",
+    "large",
+    "very large",
+    "giant",
+};
+COMPILE_CHECK(ARRAYSZ(size_adj) == NUM_SIZE_LEVELS);
+
+// This is used in monster description and on '%' screen for player size
+const char* get_size_adj(const size_type size, bool ignore_medium)
+{
+    if (ignore_medium && size == SIZE_MEDIUM)
+        return nullptr; // don't mention medium size
+    return size_adj[size];
+}
 
 // Describe a monster's (intrinsic) resistances, speed and a few other
 // attributes.
@@ -3490,6 +3512,7 @@ static string _monster_stat_description(const monster_info& mi)
         MR_RES_ELEC,    MR_RES_POISON, MR_RES_FIRE,
         MR_RES_STEAM,   MR_RES_COLD,   MR_RES_ACID,
         MR_RES_ROTTING, MR_RES_NEG,    MR_RES_DAMNATION,
+        MR_RES_WIND,
     };
 
     vector<string> extreme_resists;
@@ -3504,7 +3527,7 @@ static string _monster_stat_description(const monster_info& mi)
         if (level != 0)
         {
             const char* attackname = _get_resist_name(rflags);
-            if (rflags == MR_RES_DAMNATION)
+            if (rflags == MR_RES_DAMNATION || rflags == MR_RES_WIND)
                 level = 3; // one level is immunity
             level = max(level, -1);
             level = min(level,  3);
@@ -3704,24 +3727,9 @@ static string _monster_stat_description(const monster_info& mi)
     else if (mons_class_fast_regen(mi.type))
         result << uppercase_first(pronoun) << " regenerates quickly.\n";
 
-    // Size
-    static const char * const sizes[] =
-    {
-        "tiny",
-        "very small",
-        "small",
-        nullptr,     // don't display anything for 'medium'
-        "large",
-        "very large",
-        "giant",
-    };
-    COMPILE_CHECK(ARRAYSZ(sizes) == NUM_SIZE_LEVELS);
-
-    if (sizes[mi.body_size()])
-    {
-        result << uppercase_first(pronoun) << " is "
-        << sizes[mi.body_size()] << ".\n";
-    }
+    const char* mon_size = get_size_adj(mi.body_size(), true);
+    if (mon_size)
+        result << uppercase_first(pronoun) << " is " << mon_size << ".\n";
 
     if (in_good_standing(GOD_ZIN, 0))
     {
@@ -3756,19 +3764,26 @@ static string _monster_stat_description(const monster_info& mi)
     return result.str();
 }
 
-string serpent_of_hell_flavour(monster_type m)
+branch_type serpent_of_hell_branch(monster_type m)
 {
     switch (m)
     {
     case MONS_SERPENT_OF_HELL_COCYTUS:
-        return "cocytus";
+        return BRANCH_COCYTUS;
     case MONS_SERPENT_OF_HELL_DIS:
-        return "dis";
+        return BRANCH_DIS;
     case MONS_SERPENT_OF_HELL_TARTARUS:
-        return "tartarus";
+        return BRANCH_TARTARUS;
+    case MONS_SERPENT_OF_HELL:
+        return BRANCH_GEHENNA;
     default:
-        return "gehenna";
+        die("bad serpent of hell monster_type");
     }
+}
+
+string serpent_of_hell_flavour(monster_type m)
+{
+    return lowercase_string(branches[serpent_of_hell_branch(m)].shortname);
 }
 
 // Fetches the monster's database description and reads it into inf.
@@ -4081,6 +4096,7 @@ void get_monster_db_desc(const monster_info& mi, describe_info &inf,
         for (const auto &entry : blame)
             inf.body << "    " << entry.get_string() << "\n";
     }
+    inf.body << "\n\n" << debug_constriction_string(&mons);
 #endif
 }
 

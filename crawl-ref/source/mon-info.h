@@ -153,8 +153,8 @@ enum monster_info_flags
 #endif
     MB_RESISTANCE,
     MB_HEXED,
-    MB_BONE_ARMOUR,
 #if TAG_MAJOR_VERSION == 34
+    MB_BONE_ARMOUR,
     MB_CHANT_FIRE_STORM,
     MB_CHANT_WORD_OF_ENTROPY,
 #endif
@@ -172,7 +172,8 @@ enum monster_info_flags
     MB_NO_REWARD,
     MB_STILL_WINDS,
     MB_SLOWLY_DYING,
-    MB_DISTRACTED_ACROBATICS,
+    MB_PINNED,
+    MB_VILE_CLUTCH,
     NUM_MB_FLAGS
 };
 
@@ -275,7 +276,6 @@ struct monster_info : public monster_info_base
         short xl_rank;
         short damage;
         short ac;
-        monster_type acting_part;
     } i_ghost;
 
     inline bool is(unsigned mbflag) const

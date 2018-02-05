@@ -224,7 +224,7 @@ KMONS:   z = killer bee
 KMONS:   Z = queen bee
 ITEM:    scroll of teleportation
 ITEM:    amulet of reflection
-KITEM:   gzZ = royal jelly w:10 / nothing w:40
+KITEM:   gzZ = ration w:5 / nothing w:40
 KFEAT:   L = l
 KFEAT:   ~ = w
 KFEAT:   ^ = known teleport trap / known Zot trap
@@ -640,7 +640,7 @@ NAME:     hangedman_crystal_crosses_colossus
 TAGS:     no_monster_gen no_item_gen no_pool_fixup uniq_d_encompass
 ORIENT:   encompass
 MONS:     deep elf mage w:12 / naga mage / hell knight / efreet w:5 / \
-          rakshasa w:5 ; robe . wand of iceblast | wand of lightning . \
+          rakshasa w:5 ; robe . wand of iceblast | wand of acid . \
                          trident ego:freezing | trident ego:flaming / \
           centaur warrior w:8 ; shortbow ego:flaming | shortbow ego:freezing . \
                                 arrow . long sword good_item

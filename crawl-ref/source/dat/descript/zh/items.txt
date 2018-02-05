@@ -166,10 +166,6 @@ bow
 一根弯木条中间搭上一根线，用于射箭。它在战斗中可以对对手造成不小的伤害，
 在技术精湛的射手手中是一件强力的武器。
 %%%%
-bread ration
-
-一块面包。不太新鲜了，但依然管饱。
-%%%%
 buckler
 
 一小块用铁皮包起来的木头，可以绑在手臂上用作防御。由于这盾牌有点笨重，
@@ -334,10 +330,6 @@ lychee
 
 一个热带水果。
 %%%%
-meat ration
-
-这些腌肉肯定管饱。
-%%%%
 orange
 
 一个橘黄色水果。美味多汁。
@@ -483,10 +475,6 @@ ring of wizardry
 rod of inaccuracy
 
 这根法杖能射出一道威力强大但命中率极度低下的力能矢。
-%%%%
-royal jelly
-
-一团金色的胶状物质。食用它不仅能提供营养，还可以回复食用者失去的属性值。
 %%%%
 rune of zot
 
@@ -644,10 +632,6 @@ wand of cold
 
 一件发射寒冰矢的魔法道具。
 %%%%
-wand of confusion
-
-一件让目标生物陷入困惑和迷乱中的魔法道具。
-%%%%
 wand of disintegration
 
 这件魔法道具能使几乎一切物质分解——就连坚硬的雕像都不例外，至于解离血肉之躯，
@@ -668,10 +652,6 @@ wand of fireball
 wand of invisibility
 
 这件魔法道具能使目标生物隐形。
-%%%%
-wand of lightning
-
-一件发射闪电矢的魔法道具。
 %%%%
 wand of magic darts
 

@@ -352,10 +352,6 @@ Une boîte remplie avec les étranges restes d'expérimentations magiques d'un
 sorcier dépravé. L'ouvrir libérera une chimère amicale : créature mythique
 hybridant des parties de trois bêtes différentes.
 %%%%
-bread ration
-
-Un pain peut être un peu rassis, mais très nourrissant.
-%%%%
 buckler
 
 Une petite pièce de bois et de métal faite pour se défendre en l'attachant à un
@@ -585,10 +581,6 @@ mace
 
 Un cours gourdin avec une tête en métal.
 %%%%
-meat ration
-
-Une ration de viande séchée.
-%%%%
 mottled dragon scales
 
 Une armure magique faite à partir des écailles d'un dragon marbré. Bien qu'elle
@@ -802,11 +794,6 @@ mais de façon très imprécise.
 rod of shadows
 
 Ce sceptre tire des créatures des ombres et de l’éther.
-%%%%
-royal jelly
-
-Une gelée dorée et particulièrement nourrissante. La consommer restaure les
-caractéristiques en plus de la satiété qu'elle apporte.
 %%%%
 rune of zot
 
@@ -1042,10 +1029,6 @@ wand of cold
 
 Un instrument magique permettant de tirer de puissants missiles de froid.
 %%%%
-wand of confusion
-
-Un instrument magique qui provoque la confusion chez la créature ciblée.
-%%%%
 wand of digging
 
 Un instrument magique qui creuse des tunnels a travers la roche brute.
@@ -1071,10 +1054,6 @@ Un instrument magique qui tire des salves de flammes explosives.
 wand of invisibility
 
 Un instrument magique qui cache une créature à la vue des autres.
-%%%%
-wand of lightning
-
-Un instrument magique qui tire de puissants missiles d'électricité.
 %%%%
 wand of magic darts
 

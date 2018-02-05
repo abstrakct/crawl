@@ -109,10 +109,10 @@ int fit_armour_size(const item_def &item, size_type size) PURE;
 bool check_armour_size(const item_def &item, size_type size) PURE;
 bool check_armour_size(armour_type sub_type, size_type size) PURE;
 
-bool item_is_rechargeable(const item_def &it, bool hide_charged = false) PURE;
 int wand_charge_value(int type) PURE;
-int wand_max_charges(const item_def &item) PURE;
+#if TAG_MAJOR_VERSION == 34
 bool is_known_empty_wand(const item_def &item) PURE;
+#endif
 bool is_offensive_wand(const item_def &item) PURE;
 bool is_enchantable_armour(const item_def &arm, bool unknown = false) PURE;
 
@@ -200,10 +200,7 @@ bool is_real_food(food_type food) PURE;
 bool is_blood_potion(const item_def &item) PURE;
 bool food_is_meaty(int food_type) PURE;
 bool food_is_meaty(const item_def &item) PURE;
-bool food_is_veggie(int food_type) PURE;
-bool food_is_veggie(const item_def &item) PURE;
 int food_value(const item_def &item) PURE;
-bool is_fruit(const item_def &item) PURE;
 
 // generic item property functions:
 int armour_type_prop(const uint8_t arm, const armour_flag prop) PURE;

@@ -33,6 +33,7 @@
 #endif
 
 #include "options.h"
+#include "tilesdl.h"
 
 #ifdef __ANDROID__
 # include <android/log.h>
@@ -78,6 +79,7 @@ OGLStateManager::OGLStateManager()
 #ifdef __ANDROID__
     m_last_tex = 0;
 #endif
+    m_window_height = 0;
 }
 
 void OGLStateManager::set(const GLState& state)
@@ -205,10 +207,34 @@ void OGLStateManager::set_transform(const GLW_3VF &trans, const GLW_3VF &scale)
     glScalef(scale.x, scale.y, scale.z);
 }
 
+
+int OGLStateManager::logical_to_device(int n) const
+{
+    return display_density.logical_to_device(n);
+}
+
+int OGLStateManager::device_to_logical(int n, bool round) const
+{
+    return display_density.device_to_logical(n, round);
+}
+
+void OGLStateManager::set_scissor(int x, int y, unsigned int w, unsigned int h)
+{
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(logical_to_device(x), logical_to_device(m_window_height-y-h),
+                logical_to_device(w), logical_to_device(h));
+}
+
+void OGLStateManager::reset_scissor()
+{
+    glDisable(GL_SCISSOR_TEST);
+}
+
 void OGLStateManager::reset_view_for_resize(const coord_def &m_windowsz,
                                             const coord_def &m_drawablesz)
 {
     glViewport(0, 0, m_drawablesz.x, m_drawablesz.y);
+    m_window_height = m_windowsz.y;
 
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();

@@ -97,7 +97,7 @@ bool melee_attack::handle_phase_attempted()
     if (defender && (!adjacent(attack_position, defender->pos())
                      && !can_reach())
         || attk_type == AT_CONSTRICT
-           && (!attacker->can_constrict(defender)
+           && (!attacker->can_constrict(defender, true)
                || attacker->is_monster() && attacker->mid == MID_PLAYER))
     {
         --effective_attack_number;
@@ -342,15 +342,6 @@ void melee_attack::apply_black_mark_effects()
     }
 }
 
-// For WJC, does the defender count as being distracted?
-bool melee_attack::defender_wjc_distracted() const
-{
-    ASSERT(defender->is_monster());
-    return defender->as_monster()->has_ench(ENCH_DISTRACTED_ACROBATICS)
-            || defender->as_monster()->foe != MHITYOU
-               && !mons_is_batty(*defender->as_monster());
-}
-
 /* An attack has been determined to have hit something
  *
  * Handles to-hit effects for both attackers and defenders,
@@ -463,12 +454,10 @@ bool melee_attack::handle_phase_hit()
     // Check for weapon brand & inflict that damage too
     apply_damage_brand();
 
-    // Fireworks when hitting distracted enemies.
-    // XXX: this seems massively overcomplicated.
+    // Fireworks when using Serpent's Lash to kill.
     if (!defender->alive()
         && defender->as_monster()->can_bleed()
-        && wu_jian_attack == WU_JIAN_ATTACK_LUNGE
-        && defender_wjc_distracted())
+        && wu_jian_has_momentum(wu_jian_attack))
     {
         blood_spray(defender->pos(), defender->as_monster()->type,
                     damage_done / 5);
@@ -592,12 +581,12 @@ bool melee_attack::handle_phase_aux()
 static void _hydra_devour(monster &victim)
 {
     // what's the highest hunger level this lets the player get to?
-    const hunger_state_t max_hunger =
-        static_cast<hunger_state_t>(HS_SATIATED + player_likes_chunks());
+    const hunger_state_t max_hunger = player_likes_chunks() ? HS_ENGORGED
+                                                            : HS_SATIATED;
 
     // will eating this actually fill the player up?
     const bool filling = !have_passive(passive_t::goldify_corpses)
-                          && you.get_mutation_level(MUT_HERBIVOROUS, false) < 3
+                          && you.get_mutation_level(MUT_HERBIVOROUS, false) == 0
                           && you.hunger_state <= max_hunger
                           && you.hunger_state < HS_ENGORGED;
 
@@ -831,6 +820,10 @@ bool melee_attack::attack()
             ev_margin = AUTOMATIC_HIT;
             shield_blocked = false;
         }
+
+        // Serpent's Lash does not miss
+        if (wu_jian_has_momentum(wu_jian_attack))
+           ev_margin = AUTOMATIC_HIT;
     }
 
     if (shield_blocked)
@@ -1292,7 +1285,7 @@ bool melee_attack::player_aux_unarmed()
         // Determine and set damage and attack words.
         player_aux_setup(atk);
 
-        if (atk == UNAT_CONSTRICT && !attacker->can_constrict(defender))
+        if (atk == UNAT_CONSTRICT && !attacker->can_constrict(defender, true))
             continue;
 
         to_hit = random2(calc_your_to_hit_unarmed(atk));
@@ -1353,66 +1346,69 @@ bool melee_attack::player_aux_apply(unarmed_attack_type atk)
     aux_damage = inflict_damage(aux_damage, BEAM_MISSILE);
     damage_done = aux_damage;
 
-    if (atk == UNAT_CONSTRICT)
-        attacker->start_constricting(*defender);
-
-    if (damage_done > 0 || atk == UNAT_CONSTRICT)
+    if (defender->alive())
     {
-        player_announce_aux_hit();
+        if (atk == UNAT_CONSTRICT)
+            attacker->start_constricting(*defender);
 
-        if (damage_brand == SPWPN_ACID)
-            defender->splash_with_acid(&you, 3);
-
-        if (damage_brand == SPWPN_VENOM && coinflip())
-            poison_monster(defender->as_monster(), &you);
-
-        // Normal vampiric biting attack, not if already got stabbing special.
-        if (damage_brand == SPWPN_VAMPIRISM && you.species == SP_VAMPIRE
-            && (!stab_attempt || stab_bonus <= 0))
+        if (damage_done > 0 || atk == UNAT_CONSTRICT)
         {
-            _player_vampire_draws_blood(defender->as_monster(), damage_done);
-        }
+            player_announce_aux_hit();
 
-        if (damage_brand == SPWPN_ANTIMAGIC && you.has_mutation(MUT_ANTIMAGIC_BITE)
-            && damage_done > 0)
-        {
-            const bool spell_user = defender->antimagic_susceptible();
+            if (damage_brand == SPWPN_ACID)
+                defender->splash_with_acid(&you, 3);
 
-            antimagic_affects_defender(damage_done * 32);
+            if (damage_brand == SPWPN_VENOM && coinflip())
+                poison_monster(defender->as_monster(), &you);
 
-            // MP drain suppressed under Pakellas, but antimagic still applies.
-            if (!have_passive(passive_t::no_mp_regen) || spell_user)
+            // Normal vampiric biting attack, not if already got stabbing special.
+            if (damage_brand == SPWPN_VAMPIRISM && you.species == SP_VAMPIRE
+                && (!stab_attempt || stab_bonus <= 0))
             {
-                mprf("You %s %s %s.",
-                     have_passive(passive_t::no_mp_regen) ? "disrupt" : "drain",
-                     defender->as_monster()->pronoun(PRONOUN_POSSESSIVE).c_str(),
-                     spell_user ? "magic" : "power");
+                _player_vampire_draws_blood(defender->as_monster(), damage_done);
             }
 
-            if (!have_passive(passive_t::no_mp_regen)
-                && you.magic_points != you.max_magic_points
-                && !defender->as_monster()->is_summoned()
-                && !mons_is_firewood(*defender->as_monster()))
+            if (damage_brand == SPWPN_ANTIMAGIC && you.has_mutation(MUT_ANTIMAGIC_BITE)
+                && damage_done > 0)
             {
-                int drain = random2(damage_done * 2) + 1;
-                // Augment mana drain--1.25 "standard" effectiveness at 0 mp,
-                // 0.25 at mana == max_mana
-                drain = (int)((1.25 - you.magic_points / you.max_magic_points)
-                              * drain);
-                if (drain)
+                const bool spell_user = defender->antimagic_susceptible();
+
+                antimagic_affects_defender(damage_done * 32);
+
+                // MP drain suppressed under Pakellas, but antimagic still applies.
+                if (!have_passive(passive_t::no_mp_regen) || spell_user)
                 {
-                    mpr("You feel invigorated.");
-                    inc_mp(drain);
+                    mprf("You %s %s %s.",
+                         have_passive(passive_t::no_mp_regen) ? "disrupt" : "drain",
+                         defender->as_monster()->pronoun(PRONOUN_POSSESSIVE).c_str(),
+                         spell_user ? "magic" : "power");
+                }
+
+                if (!have_passive(passive_t::no_mp_regen)
+                    && you.magic_points != you.max_magic_points
+                    && !defender->as_monster()->is_summoned()
+                    && !mons_is_firewood(*defender->as_monster()))
+                {
+                    int drain = random2(damage_done * 2) + 1;
+                    // Augment mana drain--1.25 "standard" effectiveness at 0 mp,
+                    // 0.25 at mana == max_mana
+                    drain = (int)((1.25 - you.magic_points / you.max_magic_points)
+                                  * drain);
+                    if (drain)
+                    {
+                        mpr("You feel invigorated.");
+                        inc_mp(drain);
+                    }
                 }
             }
         }
-    }
-    else // no damage was done
-    {
-        mprf("You %s %s%s.",
-             aux_verb.c_str(),
-             defender->name(DESC_THE).c_str(),
-             you.can_see(*defender) ? ", but do no damage" : "");
+        else // no damage was done
+        {
+            mprf("You %s %s%s.",
+                 aux_verb.c_str(),
+                 defender->name(DESC_THE).c_str(),
+                 you.can_see(*defender) ? ", but do no damage" : "");
+        }
     }
 
     if (defender->as_monster()->hit_points < 1)
@@ -2912,7 +2908,7 @@ void melee_attack::mons_apply_attack_flavour()
         break;
 
     case AF_ENGULF:
-        if (x_chance_in_y(2, 3) && attacker->can_constrict(defender))
+        if (x_chance_in_y(2, 3) && attacker->can_constrict(defender, true))
         {
             if (defender->is_player() && !you.duration[DUR_WATER_HOLD]
                 && !you.duration[DUR_WATER_HOLD_IMMUNITY])
@@ -3368,19 +3364,13 @@ int melee_attack::cleave_damage_mod(int dam)
 int melee_attack::martial_damage_mod(int dam)
 {
     if (wu_jian_has_momentum(wu_jian_attack))
-        dam = div_rand_round(dam * 15, 10);
+        dam = div_rand_round(dam * 14, 10);
 
     if (wu_jian_attack == WU_JIAN_ATTACK_LUNGE)
-    {
-        if (defender_wjc_distracted())
-        {
-            mprf("%s is caught off-guard!",
-                 defender->as_monster()->name(DESC_THE).c_str());
-            dam = div_rand_round(dam * 16, 10);
-        }
-        else
-            dam = div_rand_round(dam * 13, 10);
-    }
+        dam = div_rand_round(dam * 12, 10);
+
+    if (wu_jian_attack == WU_JIAN_ATTACK_WHIRLWIND)
+        dam = div_rand_round(dam * 8, 10);
 
     return dam;
 }

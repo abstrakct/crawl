@@ -1105,17 +1105,22 @@ static void _mons_fire_wand(monster& mons, item_def &wand, bolt &beem,
 
         set_ident_type(OBJ_WANDS, wand_type, true);
         if (!mons.props["wand_known"].get_bool())
-        {
             mprf("It is %s.", wand.name(DESC_A).c_str());
-            mons.props["wand_known"] = true;
+
+        if (wand.charges <= 0)
+        {
+            mons.props["wand_known"] = false;
+            mprf("The now-empty wand crumbles to dust.");
         }
-
-        // Increment zap count.
-        if (wand.used_count >= 0)
-            wand.used_count++;
-
-        mons.flags |= MF_SEEN_RANGED;
+        else
+        {
+            mons.props["wand_known"] = true;
+            mons.flags |= MF_SEEN_RANGED;
+        }
     }
+
+    if (wand.charges <= 0)
+        dec_mitm_item_quantity(wand.index(), 1);
 
     mons.lose_energy(EUT_ITEM);
 }
@@ -1141,20 +1146,7 @@ static bool _handle_wand(monster& mons)
     }
 
     if (wand->charges <= 0)
-    {
-        if (wand->used_count != ZAPCOUNT_EMPTY)
-        {
-            if (simple_monster_message(mons, " zaps a wand."))
-                canned_msg(MSG_NOTHING_HAPPENS);
-            else if (!silenced(you.pos()))
-                mprf(MSGCH_SOUND, "You hear a zap.");
-            wand->used_count = ZAPCOUNT_EMPTY;
-            mons.lose_energy(EUT_ITEM);
-            return true;
-        }
-        else
-            return false;
-    }
+        return false;
 
     bool niceWand    = false;
     bool zap         = false;
@@ -1666,8 +1658,7 @@ void handle_monster_move(monster* mons)
         return;
     }
 
-    if (mons->has_ench(ENCH_GOLD_LUST)
-        || mons->has_ench(ENCH_DISTRACTED_ACROBATICS))
+    if (mons->has_ench(ENCH_GOLD_LUST))
     {
         mons->speed_increment -= non_move_energy;
         return;
@@ -3333,7 +3324,7 @@ static bool _do_move_monster(monster& mons, const coord_def& delta)
 
     // Let go of all constrictees; only stop *being* constricted if we are now
     // too far away (done in move_to_pos above).
-    mons.stop_constricting_all(true);
+    mons.stop_directly_constricting_all(false);
 
     mons.check_redraw(mons.pos() - delta);
     mons.apply_location_effects(mons.pos() - delta);

@@ -1175,6 +1175,7 @@ int main(int argc, char* argv[])
         mons_check_flag(bool(me->bitfields & M_FLIES), monsterflags, "fly");
         mons_check_flag(bool(me->bitfields & M_FAST_REGEN), monsterflags,
                         "regen");
+        mons_check_flag(mon.can_cling_to_walls(), monsterflags, "cling");
         mons_check_flag(bool(me->bitfields & M_WEB_SENSE), monsterflags,
                         "web sense");
         mons_check_flag(mon.is_unbreathing(), monsterflags, "unbreathing");
@@ -1266,9 +1267,6 @@ int main(int argc, char* argv[])
             {
             case CE_NOXIOUS:
                 printf("%s", colour(DARKGREY, "noxious").c_str());
-                break;
-            case CE_MUTAGEN:
-                printf("%s", colour(MAGENTA, "mutagenic").c_str());
                 break;
             // We should't get here; including these values so we can get
             // compiler

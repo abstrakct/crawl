@@ -9,6 +9,7 @@
 
 #include "command-type.h"
 #include "disable-type.h"
+#include "game-exit-type.h"
 #include "player.h"
 
 class monster;
@@ -56,9 +57,12 @@ struct game_state
                                    // under mapstat.
     bool obj_stat_gen;      // Set if we're generating object stats.
 
+    string force_map;       // Set if we're forcing a specific map to generate.
+
     game_type type;
     game_type last_type;
-    bool last_game_won;
+    game_exit last_game_exit;
+    bool marked_as_won;
     bool arena_suspended;   // Set if the arena has been temporarily
                             // suspended.
     bool generating_level;
@@ -72,6 +76,7 @@ struct game_state
     vector<string> script_args;    // Arguments to scripts.
 
     bool throttle;
+    bool bypassed_startup_menu;
 
     bool show_more_prompt;  // Set to false to disable --more-- prompts.
 
@@ -136,6 +141,8 @@ protected:
 public:
     game_state();
 
+    void reset_game();
+
     void add_startup_error(const string &error);
     void show_startup_errors();
 
@@ -143,8 +150,8 @@ public:
 
     bool is_repeating_cmd() const;
 
-    void cancel_cmd_repeat(string reason = "");
-    void cancel_cmd_again(string reason = "");
+    void cancel_cmd_repeat(string reason = "", bool force=false);
+    void cancel_cmd_again(string reason = "", bool force=false);
     void cancel_cmd_all(string reason = "");
 
     void cant_cmd_repeat(string reason = "");
@@ -197,7 +204,7 @@ public:
 
     inline void mark_last_game_won()
     {
-        last_game_won = true;
+        marked_as_won = true;
     }
 
     friend class mon_acting;

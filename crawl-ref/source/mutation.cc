@@ -346,7 +346,6 @@ mutation_activity_type mutation_activity_level(mutation_type mut)
         case MUT_SLOW:
         case MUT_IRIDESCENT_SCALES:
             return mutation_activity_type::INACTIVE;
-        case MUT_LARGE_BONE_PLATES:
 #if TAG_MAJOR_VERSION == 34
         case MUT_ROUGH_BLACK_SCALES:
 #endif
@@ -1421,8 +1420,7 @@ bool mutate(mutation_type which_mutation, const string &reason, bool failMsg,
 
         // Zin's protection.
         if (have_passive(passive_t::resist_mutation)
-            && (x_chance_in_y(you.piety, MAX_PIETY)
-                || x_chance_in_y(you.piety, MAX_PIETY + 22)))
+            && x_chance_in_y(you.piety, piety_breakpoint(5)))
         {
             simple_god_message(" protects your body from mutation!");
             return false;

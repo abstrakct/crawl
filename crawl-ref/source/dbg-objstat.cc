@@ -171,7 +171,7 @@ static const char* missile_brand_field = "BrandNums";
 static const vector<string> monster_fields = {
     "Num", "NumNonVault", "NumVault", "NumMin", "NumMax", "NumSD", "MonsHD",
     "MonsHP", "MonsXP", "TotalXP", "TotalNonVaultXP", "TotalVaultXP",
-    "MonsNumChunks", "MonsNumMutChunks", "TotalNutr", "TotalCarnNutr",
+    "MonsNumChunks", "TotalNutr", "TotalCarnNutr",
     "TotalGhoulNutr",
 };
 
@@ -647,15 +647,16 @@ void objstat_record_item(const item_def &item)
         brand = get_ammo_brand(item);
         break;
     case ITEM_FOOD:
-        _record_item_stat(cur_lev, itype, "TotalNormNutr", food_value(item));
+        _record_item_stat(cur_lev, itype, "TotalNormNutr",
+                          food_value(item) * item.quantity);
         // Set these dietary mutations so we can get accurate nutrition.
-        you.mutation[MUT_CARNIVOROUS] = 3;
+        you.mutation[MUT_CARNIVOROUS] = 1;
         _record_item_stat(cur_lev, itype, "TotalCarnNutr",
-                             food_value(item) * food_is_meaty(item.sub_type));
+                          food_value(item) * item.quantity);
         you.mutation[MUT_CARNIVOROUS] = 0;
-        you.mutation[MUT_HERBIVOROUS] = 3;
+        you.mutation[MUT_HERBIVOROUS] = 1;
         _record_item_stat(cur_lev, itype, "TotalHerbNutr",
-                             food_value(item) * food_is_veggie(item.sub_type));
+                          food_value(item) * item.quantity);
         you.mutation[MUT_HERBIVOROUS] = 0;
         break;
     case ITEM_WEAPONS:
@@ -768,13 +769,11 @@ void objstat_record_monster(const monster *mons)
                                             4, 4, 12, 12)) / 2.0;
         item_def chunk_item = _dummy_item(item_type(ITEM_FOOD, FOOD_CHUNK));
 
-        you.mutation[MUT_CARNIVOROUS] = 3;
+        you.mutation[MUT_CARNIVOROUS] = 1;
         int carn_value = food_value(chunk_item);
         you.mutation[MUT_CARNIVOROUS] = 0;
 
         _record_monster_stat(lev, mons_ind, "MonsNumChunks", chunks);
-        if (chunk_effect == CE_MUTAGEN)
-            _record_monster_stat(lev, mons_ind, "MonsNumMutChunks", chunks);
 
         if (chunk_effect == CE_CLEAN)
         {
@@ -862,8 +861,7 @@ static void _write_stat(map<string, double> &stats, string field)
              || field == "MonsHD"
              || field == "MonsHP"
              || field == "MonsXP"
-             || field == "MonsNumChunks"
-             || field == "MonsNumMutChunks")
+             || field == "MonsNumChunks")
     {
         value = stats[field] / stats["Num"];
     }
@@ -1179,6 +1177,9 @@ void objstat_generate_stats()
     you.wizard = true;
     // Let "acquire foo" have skill aptitudes to work with.
     you.species = SP_HUMAN;
+
+    if (!crawl_state.force_map.empty() && !mapstat_find_forced_map())
+        return;
 
     initialise_item_descriptions();
     initialise_branch_depths();

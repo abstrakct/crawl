@@ -208,10 +208,6 @@ box of beasts
 この箱を開くことで友好的なキメラを解放するかもしれない。
 キメラは3つの別々の獣を混ぜ合わせた神話的な混成体である。
 %%%%
-bread ration
-
-硬いが栄養があり、食べごたえのある食べ物、パンだ。
-%%%%
 buckler
 
 防御するために腕にくくりつけられた木や金属の小さな1片だ。
@@ -354,10 +350,6 @@ longbow
 lychee
 
 これは南国の果物だ。
-%%%%
-meat ration
-
-食べ応えのある乾し肉の保存食だ。
 %%%%
 orange
 
@@ -518,11 +510,6 @@ ring of wizardry
 rod of inaccuracy
 
 このロッドは手にしている者に強力だがとても不正確な力の矢を射つことを可能にする。
-%%%%
-royal jelly
-
-とりわけ豪華な、金色をしたゼリー状の存在だ。 Consuming it will restore lost
-abilities, in addition to the nutrition it provides.
 %%%%
 rune of zot
 
@@ -685,10 +672,6 @@ wand of cold
 
 強力な冷気の矢を放つ魔法の道具だ。
 %%%%
-wand of confusion
-
-対象に混乱と狼狽を引き起こす魔法の道具だ。
-%%%%
 wand of digging
 
 強化を受けていない岩を掘削する魔法の道具だ。
@@ -713,10 +696,6 @@ wand of fireball
 wand of invisibility
 
 対象を他者の視覚から隠蔽する魔法の道具だ。
-%%%%
-wand of lightning
-
-強力な稲妻の矢を放つ魔法の道具だ。
 %%%%
 wand of magic darts
 

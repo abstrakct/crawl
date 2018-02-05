@@ -94,10 +94,9 @@ function setup_room(e, id)
     e.tile("X = wall_stone_white")
 
     -- Create items
-e.kitem("1 = superb_item ident:all w:590 / royal jelly q:3 w:2 /\
+e.kitem("1 = superb_item ident:all w:590 / ration w:2 /\
             potion of heal wounds ident:all q:4 w:3 /\
             potion of haste ident:all q:4 w:3 /\
-            scroll of recharging ident:all w:1 /\
             scroll of fog w:1 ident:all / scroll of holy word w:1 ident:all /\
             potion of might ident:all w:2 / potion of agility w:2 ident:all /\
             scroll of acquirement q:1 w:1 ident:all /\
@@ -724,8 +723,6 @@ KFEAT:  x = altar_xom
 KFEAT:  y = altar_yredelemnul
 KFEAT:  z = altar_zin
 KFEAT:  1 = altar_the_shining_one
-# Disable Wu in the stable version.
-: if crawl.unavailable_god("Wu Jian") then _G.subst("w = .") end
 KITEM:    B = plate armour mundane not_cursed ident:all plus:5, \
               fire dragon scales mundane not_cursed ident:all plus:5, \
               ice dragon scales mundane not_cursed ident:all plus:5, \
@@ -780,13 +777,11 @@ KITEM:    L = scroll of blinking q:3 ident:all, \
               scroll of identify q:5 ident:all, \
               scroll of holy word q:1 ident:all, \
               scroll of fog q:7 ident:all, \
-              scroll of recharging q:3 ident:all, \
-          scroll of amnesia q:4 ident:all
-KITEM:    M = meat ration q:4, bread ration q:4, fruit q:42
-KITEM:    N = wand of acid ident:all charges:5, \
-              wand of lightning ident:all charges:5, \
-              wand of iceblast ident:all charges:5, \
-          wand of disintegration ident:all charges:7
+              scroll of amnesia q:4 ident:all
+KITEM:    M = ration q:6
+KITEM:    N = wand of acid ident:all charges:7, \
+              wand of iceblast ident:all charges:7, \
+              wand of disintegration ident:all charges:7
 KITEM:    O = crystal ball of energy ident:all, staff of energy not_cursed ident:all
 KITEM:    P = ring of strength not_cursed ident:all plus:6, \
               ring of strength not_cursed ident:all plus:6, \

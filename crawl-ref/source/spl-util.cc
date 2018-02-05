@@ -251,18 +251,18 @@ spell_type get_spell_by_letter(char letter)
 
 bool add_spell_to_memory(spell_type spell)
 {
-    int i;
-    int j = -1;
+    int slot_i;
+    int letter_j = -1;
     string sname = spell_title(spell);
     lowercase(sname);
     // first we find a slot in our head:
-    for (i = 0; i < MAX_KNOWN_SPELLS; i++)
+    for (slot_i = 0; slot_i < MAX_KNOWN_SPELLS; slot_i++)
     {
-        if (you.spells[i] == SPELL_NO_SPELL)
+        if (you.spells[slot_i] == SPELL_NO_SPELL)
             break;
     }
 
-    you.spells[i] = spell;
+    you.spells[slot_i] = spell;
 
     // now we find an available label:
     // first check to see whether we've chosen an automatic label:
@@ -279,54 +279,54 @@ bool add_spell_to_memory(spell_type spell)
                 overwrite = false;
             else if (isaalpha(ch))
             {
-                const int slot = letter_to_index(ch);
-                const int existing = you.spell_letter_table[slot];
-                if (existing == -1)
+                const int new_letter = letter_to_index(ch);
+                const int existing_slot = you.spell_letter_table[new_letter];
+                if (existing_slot == -1)
                 {
-                    j = slot;
+                    letter_j = new_letter;
                     break;
                 }
                 else if (overwrite)
                 {
                     const string ename = lowercase_string(
-                            spell_title(static_cast<spell_type>(existing)));
+                            spell_title(get_spell_by_letter(ch)));
                     // Don't overwrite a spell matched by the same rule.
                     if (!entry.first.matches(ename))
                     {
-                        j = slot;
+                        letter_j = new_letter;
                         break;
                     }
                 }
                 // Otherwise continue on to the next letter in this rule.
             }
         }
-        if (j != -1)
+        if (letter_j != -1)
             break;
     }
     // If we didn't find a label above, choose the first available one.
-    if (j == -1)
-        for (j = 0; j < 52; j++)
+    if (letter_j == -1)
+        for (letter_j = 0; letter_j < 52; letter_j++)
         {
-            if (you.spell_letter_table[j] == -1)
+            if (you.spell_letter_table[letter_j] == -1)
                 break;
         }
 
     if (you.num_turns)
-        mprf("Spell assigned to '%c'.", index_to_letter(j));
+        mprf("Spell assigned to '%c'.", index_to_letter(letter_j));
 
     // Swapping with an existing spell.
-    if (you.spell_letter_table[j] != -1)
+    if (you.spell_letter_table[letter_j] != -1)
     {
         // Find a spot for the spell being moved. Assumes there will be one.
-        for (int free = 0; free < 52; free++)
-            if (you.spell_letter_table[free] == -1)
+        for (int free_letter = 0; free_letter < 52; free_letter++)
+            if (you.spell_letter_table[free_letter] == -1)
             {
-                you.spell_letter_table[free] = you.spell_letter_table[j];
+                you.spell_letter_table[free_letter] = you.spell_letter_table[letter_j];
                 break;
             }
     }
 
-    you.spell_letter_table[j] = i;
+    you.spell_letter_table[letter_j] = slot_i;
 
     you.spell_no++;
 
@@ -357,15 +357,6 @@ static void _remove_spell_attributes(spell_type spell)
                                  : "your spell is no longer protecting you");
         }
         break;
-#if TAG_MAJOR_VERSION == 34
-    case SPELL_DELAYED_FIREBALL:
-        if (you.attribute[ATTR_DELAYED_FIREBALL])
-        {
-            you.attribute[ATTR_DELAYED_FIREBALL] = 0;
-            mprf(MSGCH_DURATION, "Your charged fireball dissipates.");
-        }
-        break;
-#endif
     default:
         break;
     }
@@ -1205,12 +1196,7 @@ string spell_uselessness_reason(spell_type spell, bool temp, bool prevent,
             return "you must stand on solid ground to cast this.";
         }
         break;
-#if TAG_MAJOR_VERSION == 34
-    case SPELL_DELAYED_FIREBALL:
-        if (temp && you.attribute[ATTR_DELAYED_FIREBALL])
-            return "you are already charged.";
-        break;
-#endif
+
     case SPELL_BORGNJORS_REVIVIFICATION:
         if (temp && you.hp == you.hp_max)
             return "you cannot be healed further.";
@@ -1242,13 +1228,6 @@ string spell_uselessness_reason(spell_type spell, bool temp, bool prevent,
             return "the film of ice won't work on stone.";
         if (temp && you.duration[DUR_FIRE_SHIELD])
             return "your ring of flames would instantly melt the ice.";
-        break;
-
-    case SPELL_CIGOTUVIS_EMBRACE:
-        if (temp && you.form == transformation::statue)
-            return "the corpses won't embrace your stony flesh.";
-        if (temp && you.duration[DUR_ICY_ARMOUR])
-            return "the corpses won't embrace your icy flesh.";
         break;
 
     case SPELL_SUBLIMATION_OF_BLOOD:
@@ -1292,8 +1271,6 @@ string spell_uselessness_reason(spell_type spell, bool temp, bool prevent,
 
     case SPELL_ANIMATE_DEAD:
     case SPELL_ANIMATE_SKELETON:
-    case SPELL_TWISTED_RESURRECTION:
-    case SPELL_CONTROL_UNDEAD:
     case SPELL_DEATH_CHANNEL:
     case SPELL_SIMULACRUM:
     case SPELL_INFESTATION:
@@ -1364,9 +1341,10 @@ bool spell_no_hostile_in_range(spell_type spell)
 {
     const int range = calc_spell_range(spell, 0);
     const int minRange = get_dist_to_nearest_monster();
+
     switch (spell)
     {
-    // These don't target monsters.
+    // These don't target monsters or can target features.
     case SPELL_APPORTATION:
     case SPELL_CONJURE_FLAME:
     case SPELL_PASSWALL:
@@ -1374,10 +1352,8 @@ bool spell_no_hostile_in_range(spell_type spell)
     case SPELL_LRD:
     case SPELL_FULMINANT_PRISM:
     case SPELL_SUMMON_LIGHTNING_SPIRE:
-
-    // Shock and Lightning Bolt are no longer here, as the code below can
-    // account for possible bounces.
-
+    // This can always potentially hit out-of-LOS, although this is conditional
+    // on spell-power.
     case SPELL_FIRE_STORM:
         return false;
 
@@ -1428,18 +1404,21 @@ bool spell_no_hostile_in_range(spell_type spell)
     if (minRange < 0 || range < 0)
         return false;
 
+    const unsigned int flags = get_spell_flags(spell);
+
     // The healing spells.
-    if (testbits(get_spell_flags(spell), SPFLAG_HELPFUL))
+    if (testbits(flags, SPFLAG_HELPFUL))
         return false;
 
-    const bool neutral = testbits(get_spell_flags(spell), SPFLAG_NEUTRAL);
+    const bool neutral = testbits(flags, SPFLAG_NEUTRAL);
 
     bolt beam;
     beam.flavour = BEAM_VISUAL;
     beam.origin_spell = spell;
 
     zap_type zap = spell_to_zap(spell);
-    if (spell == SPELL_RANDOM_BOLT) // don't let it think that there are no susceptible monsters in range
+    // Don't let it think that there are no susceptible monsters in range
+    if (spell == SPELL_RANDOM_BOLT)
         zap = ZAP_DEBUGGING_RAY;
 
     if (zap != NUM_ZAPS)
@@ -1467,12 +1446,39 @@ bool spell_no_hostile_in_range(spell_type spell)
 #ifdef DEBUG_DIAGNOSTICS
         beam.quiet_debug = true;
 #endif
+
+        const bool smite = testbits(flags, SPFLAG_TARGET);
+
         for (radius_iterator ri(you.pos(), range, C_SQUARE, LOS_DEFAULT);
              ri; ++ri)
         {
             tempbeam = beam;
             tempbeam.target = *ri;
-            tempbeam.fire();
+
+            // For smite-targeted spells that aren't LOS-range.
+            if (smite)
+            {
+                // XXX These are basic checks that might be applicable to
+                // non-smiting spells as well. For those, the loop currently
+                // relies mostly on results from the temp beam firing, but it
+                // may be valid to exclude solid and non-reachable targets for
+                // all spells. -gammafunk
+                if (cell_is_solid(*ri) || !you.see_cell_no_trans(*ri))
+                    continue;
+
+                // XXX Currently Vile Clutch is the only smite-targeted area
+                // spell that isn't LOS-range. Spell explosion radii are not
+                // stored anywhere, defaulting to 1 for non-smite-targeting
+                // spells through bolt::refine_for_explosions() or being set in
+                // setup functions for the smite targeted explosions. It would
+                // be good to move basic explosion radius info into spell_desc
+                // or possibly zap_data. -gammafunk
+                tempbeam.ex_size = tempbeam.is_explosion ? 1 : 0;
+                tempbeam.explode();
+            }
+            else
+                tempbeam.fire();
+
             if (tempbeam.foe_info.count > 0
                 || neutral && tempbeam.friend_info.count > 0)
             {

@@ -83,8 +83,6 @@
 #include "wizard-option-type.h"
 #include "xom.h"
 
-static int _bone_armour_bonus();
-
 static void _moveto_maybe_repel_stairs()
 {
     const dungeon_feature_type new_grid = env.grid(you.pos());
@@ -1077,7 +1075,8 @@ bool regeneration_is_inhibited()
         {
             if (mons_is_threatening(**mi)
                 && !mi->wont_attack()
-                && !mi->neutral())
+                && !mi->neutral()
+                && !mi->submerged())
             {
                 return true;
             }
@@ -1283,10 +1282,10 @@ int player_spell_levels()
     return sl;
 }
 
-int player_likes_chunks(bool permanently)
+bool player_likes_chunks(bool permanently)
 {
     return you.gourmand(true, !permanently)
-           ? 3 : you.get_mutation_level(MUT_CARNIVOROUS);
+           || you.get_mutation_level(MUT_CARNIVOROUS) > 0;
 }
 
 // If temp is set to false, temporary sources or resistance won't be counted.
@@ -1925,7 +1924,7 @@ int player_movement_speed()
         mv--;
 
     if (you.duration[DUR_FROZEN])
-        mv += 4;
+        mv += 3;
 
     if (you.duration[DUR_GRASPING_ROOTS])
         mv += 3;
@@ -2287,7 +2286,6 @@ int player_shield_class()
 
     shield += qazlal_sh_boost() * 100;
     shield += tso_sh_boost() * 100;
-    shield += _bone_armour_bonus() * 2;
     shield += you.wearing(EQ_AMULET_PLUS, AMU_REFLECTION) * 200;
     shield += you.scan_artefacts(ARTP_SHIELDING) * 200;
 
@@ -4861,8 +4859,12 @@ void fly_player(int pow, bool already_flying)
 
 void enable_emergency_flight()
 {
-    mpr("You can't land here! You focus on prolonging your flight, but the "
-        "process is draining.");
+    mprf("You can't survive in this terrain! You fly above the %s, but the "
+         "process is draining.",
+         (grd(you.pos()) == DNGN_LAVA)       ? "lava" :
+         (grd(you.pos()) == DNGN_DEEP_WATER) ? "water"
+                                             : "buggy terrain");
+
     you.props[EMERGENCY_FLIGHT_KEY] = true;
 }
 
@@ -5772,23 +5774,6 @@ int player_icemail_armour_class()
 }
 
 /**
- * How many points of AC/SH does the player get from their current bone armour?
- *
- * ((power / 100) + 0.5) * (# of corpses). (That is, between 0.5 and 1.5 AC+SH
- * per corpse.)
- * @return          The AC/SH bonus * 100. (For scale reasons.)
- */
-static int _bone_armour_bonus()
-{
-    if (!you.attribute[ATTR_BONE_ARMOUR])
-        return 0;
-
-    const int power = calc_spell_power(SPELL_CIGOTUVIS_EMBRACE, true);
-    // rounding errors here, but not sure of a good way to avoid that.
-    return you.attribute[ATTR_BONE_ARMOUR] * (50 + power);
-}
-
-/**
  * How many points of AC does the player get from their sanguine armour, if
  * they have any?
  *
@@ -5861,7 +5846,7 @@ int player::racial_ac(bool temp) const
         else if (species == SP_GARGOYLE)
         {
             return 200 + 100 * experience_level * 2 / 5     // max 20
-                       + 100 * (max(0, experience_level - 7) * 2 / 5);
+                       + 100 * max(0, experience_level - 7) * 2 / 5;
         }
     }
 
@@ -5967,7 +5952,6 @@ int player::armour_class(bool /*calc_unid*/) const
     if (duration[DUR_CORROSION])
         AC -= 400 * you.props["corrosion_amount"].get_int();
 
-    AC += _bone_armour_bonus();
     AC += sanguine_armour_bonus();
 
     return AC / scale;
@@ -6051,11 +6035,20 @@ bool player::heal(int amount)
  */
 mon_holy_type player::holiness(bool temp) const
 {
-    mon_holy_type holi = undead_state(temp) ? MH_UNDEAD : MH_NATURAL;
+    mon_holy_type holi;
 
-    if (species == SP_GARGOYLE ||
-        temp && (form == transformation::statue
-                 || form == transformation::wisp || petrified()))
+    // Lich form takes precedence over a species' base holiness
+    if (undead_state(temp))
+        holi = MH_UNDEAD;
+    else if (species == SP_GARGOYLE)
+        holi = MH_NONLIVING;
+    else
+        holi = MH_NATURAL;
+
+    // Petrification takes precedence over base holiness and lich form
+    if (temp && (form == transformation::statue
+                 || form == transformation::wisp
+                 || petrified()))
     {
         holi = MH_NONLIVING;
     }
@@ -6672,7 +6665,7 @@ void player::paralyse(actor *who, int str, string source)
 
     paralysis = min(str, 13) * BASELINE_DELAY;
 
-    stop_constricting_all();
+    stop_directly_constricting_all(false);
     end_searing_ray();
 }
 
@@ -7139,7 +7132,7 @@ void player::shiftto(const coord_def &c)
 {
     crawl_view.shift_player_to(c);
     set_position(c);
-    clear_far_constrictions();
+    clear_invalid_constrictions();
 }
 
 bool player::asleep() const
@@ -7194,7 +7187,7 @@ void player::put_to_sleep(actor*, int power, bool hibernate)
 
     mpr("You fall asleep.");
 
-    stop_constricting_all();
+    stop_directly_constricting_all(false);
     end_searing_ray();
     stop_delay();
     flash_view(UA_MONSTER, DARKGREY);
@@ -7524,32 +7517,43 @@ static string _constriction_description()
                               num_free_tentacles,
                               num_free_tentacles > 1 ? "s" : "");
     }
-    // name of what this monster is constricted by, if any
-    if (you.is_constricted())
+
+    if (you.is_directly_constricted())
     {
+        const monster * const constrictor = monster_by_mid(you.constricted_by);
+        ASSERT(constrictor);
+
         if (!cinfo.empty())
             cinfo += "\n";
 
         cinfo += make_stringf("You are being %s by %s.",
-                      you.held == HELD_MONSTER ? "held" : "constricted",
-                      monster_by_mid(you.constricted_by)->name(DESC_A).c_str());
+                              constrictor->constriction_does_damage(true) ?
+                                  "held" : "constricted",
+                              constrictor->name(DESC_A).c_str());
     }
 
-    if (you.constricting && !you.constricting->empty())
+    if (you.is_constricting())
     {
         for (const auto &entry : *you.constricting)
         {
             monster *whom = monster_by_mid(entry.first);
             ASSERT(whom);
+
+            if (!whom->is_directly_constricted())
+                continue;
+
             c_name.push_back(whom->name(DESC_A));
         }
 
-        if (!cinfo.empty())
-            cinfo += "\n";
+        if (!c_name.empty())
+        {
+            if (!cinfo.empty())
+                cinfo += "\n";
 
-        cinfo += "You are constricting ";
-        cinfo += comma_separated_line(c_name.begin(), c_name.end());
-        cinfo += ".";
+            cinfo += "You are constricting ";
+            cinfo += comma_separated_line(c_name.begin(), c_name.end());
+            cinfo += ".";
+        }
     }
 
     return cinfo;
@@ -7828,6 +7832,8 @@ void player_close_door(coord_def doorpos)
                                                 "door_description_noun");
     set<coord_def> all_door;
     find_connected_identical(doorpos, all_door);
+    const auto door_vec = vector<coord_def>(all_door.begin(), all_door.end());
+
     const char *adj, *noun;
     get_door_description(all_door.size(), &adj, &noun);
     const string waynoun_str = make_stringf("%sway", noun);
@@ -7860,16 +7866,31 @@ void player_close_door(coord_def doorpos)
 
         if (igrd(dc) != NON_ITEM)
         {
-            mprf("There's something blocking the %s.", waynoun);
-            return;
+            if (!has_push_spaces(dc, false, &door_vec))
+            {
+                mprf("There's something jamming the %s.", waynoun);
+                return;
+            }
         }
 
+        // messaging with gateways will be inconsistent if this isn't last
         if (you.pos() == dc)
         {
             mprf("There's a thick-headed creature in the %s!", waynoun);
             return;
         }
     }
+    const int you_old_top_item = igrd(you.pos());
+
+    bool items_moved = false;
+    for (const coord_def& dc : all_door)
+        items_moved |= push_items_from(dc, &door_vec);
+
+    // TODO: if only one thing moved, use that item's name
+    // TODO: handle des-derived strings.  (Better yet, find a way to not have
+    // format strings in des...)
+    const char *items_msg = items_moved ? ", pushing everything out of the way"
+                                        : "";
 
     const int skill = 8 + you.skill_rdiv(SK_STEALTH, 4, 3);
 
@@ -7883,7 +7904,7 @@ void player_close_door(coord_def doorpos)
                 mprf(berserk_close.c_str(), adj, noun);
             }
             else
-                mprf("You slam the %s%s shut!", adj, noun);
+                mprf("You slam the %s%s shut%s!", adj, noun, items_msg);
         }
         else
         {
@@ -7897,8 +7918,8 @@ void player_close_door(coord_def doorpos)
             }
             else
             {
-                mprf(MSGCH_SOUND, "You slam the %s%s shut with a bang!",
-                                  adj, noun);
+                mprf(MSGCH_SOUND, "You slam the %s%s shut with a bang%s!",
+                                  adj, noun, items_msg);
             }
 
             noisy(15, you.pos());
@@ -7910,31 +7931,28 @@ void player_close_door(coord_def doorpos)
             mprf(MSGCH_SOUND, door_close_creak.c_str(), adj, noun);
         else
         {
-            mprf(MSGCH_SOUND, "As you close the %s%s, it creaks loudly!",
-                              adj, noun);
+            mprf(MSGCH_SOUND, "As you close the %s%s%s, it creaks loudly!",
+                              adj, noun, items_msg);
         }
 
         noisy(10, you.pos());
     }
     else
     {
-        const char* verb;
         if (you.airborne())
         {
             if (!door_airborne.empty())
-                verb = door_airborne.c_str();
+                mprf(door_airborne.c_str(), adj, noun);
             else
-                verb = "You reach down and close the %s%s.";
+                mprf("You reach down and close the %s%s%s.", adj, noun, items_msg);
         }
         else
         {
             if (!door_close_verb.empty())
-                verb = door_close_verb.c_str();
+                mprf(door_close_verb.c_str(), adj, noun);
             else
-                verb = "You close the %s%s.";
+                mprf("You close the %s%s%s.", adj, noun, items_msg);
         }
-
-        mprf(verb, adj, noun);
     }
 
     vector<coord_def> excludes;
@@ -7960,6 +7978,10 @@ void player_close_door(coord_def doorpos)
     }
 
     update_exclusion_los(excludes);
+
+    // item pushing may have moved items under the player
+    if (igrd(you.pos()) != you_old_top_item)
+        item_check();
     you.turn_is_over = true;
 }
 
@@ -8009,52 +8031,6 @@ string player::hands_act(const string &plural_verb,
     return "Your " + hands_verb(plural_verb) + (space ? " " : "") + object;
 }
 
-/**
- * Possibly drop a point of bone armour (from Cigotuvi's Embrace) when hit,
- * or over time.
- *
- * Chance of losing a point of ac/sh increases with current number of corpses
- * (ATTR_BONE_ARMOUR). Each added corpse increases the chance of losing a bit
- * by 5/4x. (So ten corpses are a 9x chance, twenty are 87x...)
- *
- * Base chance is 1/500 (per aut) - 2% per turn, 63% within 50 turns.
- * At 10 corpses, that becomes a 17% per-turn chance, 61% within 5 turns.
- * At 20 corpses, that's 20% per-aut, 90% per-turn...
- *
- * Getting hit/blocking has a higher (BONE_ARMOUR_HIT_RATIO *) chance;
- * at BONE_ARMOUR_HIT_RATIO = 50, that's 10% at one corpse, 30% at five,
- * 90% at ten...
- *
- * @param trials  The number of times to potentially shed armour.
- */
-void player::maybe_degrade_bone_armour(int trials)
-{
-    if (attribute[ATTR_BONE_ARMOUR] <= 0)
-        return;
-
-    const int base_denom = 50 * BASELINE_DELAY;
-    int denom = base_denom;
-    for (int i = 1; i < attribute[ATTR_BONE_ARMOUR]; ++i)
-        denom = div_rand_round(denom * 4, 5);
-
-    const int degraded_armour = binomial(trials, 1, denom);
-    dprf("degraded armour? (%d armour, %d/%d in %d trials): %d",
-         attribute[ATTR_BONE_ARMOUR], 1, denom, trials, degraded_armour);
-    if (degraded_armour <= 0)
-        return;
-
-    you.attribute[ATTR_BONE_ARMOUR]
-        = max(0, you.attribute[ATTR_BONE_ARMOUR] - degraded_armour);
-
-    if (!you.attribute[ATTR_BONE_ARMOUR])
-        mpr("The last of your corpse armour falls away.");
-    else
-        for (int i = 0; i < degraded_armour; ++i)
-            mpr("A chunk of your corpse armour falls away.");
-
-    redraw_armour_class = true;
-}
-
 int player::inaccuracy() const
 {
     int degree = 0;
@@ -8090,7 +8066,7 @@ void player_end_berserk()
         {
             mprf(MSGCH_WARN, "You pass out from exhaustion.");
             you.increase_duration(DUR_PARALYSIS, roll_dice(1, 4));
-            you.stop_constricting_all();
+            you.stop_directly_constricting_all(false);
         }
     }
 

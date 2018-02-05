@@ -671,44 +671,41 @@ struct food_def
 {
     int         id;
     const char *name;
-    int         value;
-    int         carn_mod;
-    int         herb_mod;
+    int         normal_nutr;
+    int         carn_nutr;
+    int         herb_nutr;
 };
 
 static int Food_index[NUM_FOODS];
 static const food_def Food_prop[] =
 {
-    { FOOD_MEAT_RATION,  "meat ration",  5000,   500, -1500 },
-    { FOOD_CHUNK,        "chunk",        1000,   100,  -500 },
-
-    { FOOD_BREAD_RATION, "bread ration", 4400, -1000,   500 },
-
-    { FOOD_FRUIT,        "fruit",         850,  -100,    50 },
-
-    { FOOD_ROYAL_JELLY,  "royal jelly",  2000,     0,     0 },
+    { FOOD_RATION,       "ration",       3400,  1900,  1900 },
+    { FOOD_CHUNK,        "chunk",        1000,  1300,     0 },
 
 #if TAG_MAJOR_VERSION == 34
-    // is_real_food assumes we list FOOD_UNUSED as the first removed
+    // is_real_food assumes we list FOOD_ROYAL_JELLY as the first removed
     // food here, after all the unremoved foods.
-    { FOOD_UNUSED,       "buggy",           0,     0,     0 },
-    { FOOD_AMBROSIA,     "buggy",           0,     0,     0 },
-    { FOOD_ORANGE,       "buggy",        1000,  -300,   300 },
-    { FOOD_BANANA,       "buggy",        1000,  -300,   300 },
-    { FOOD_LEMON,        "buggy",        1000,  -300,   300 },
-    { FOOD_PEAR,         "buggy",         700,  -200,   200 },
-    { FOOD_APPLE,        "buggy",         700,  -200,   200 },
-    { FOOD_APRICOT,      "buggy",         700,  -200,   200 },
-    { FOOD_CHOKO,        "buggy",         600,  -200,   200 },
-    { FOOD_RAMBUTAN,     "buggy",         600,  -200,   200 },
-    { FOOD_LYCHEE,       "buggy",         600,  -200,   200 },
-    { FOOD_STRAWBERRY,   "buggy",         200,   -50,    50 },
-    { FOOD_GRAPE,        "buggy",         100,   -20,    20 },
-    { FOOD_SULTANA,      "buggy",          70,   -20,    20 },
-    { FOOD_CHEESE,       "buggy",        1200,     0,     0 },
-    { FOOD_SAUSAGE,      "buggy",        1200,   150,  -400 },
-    { FOOD_BEEF_JERKY,   "buggy",        1500,   200,  -200 },
-    { FOOD_PIZZA,        "buggy",        1500,     0,     0 },
+    { FOOD_UNUSED,       "buggy pizza",     0,     0,     0 },
+    { FOOD_ROYAL_JELLY,  "buggy jelly",  2000,  2000,  2000 },
+    { FOOD_BREAD_RATION, "buggy ration", 4400,     0,  5900 },
+    { FOOD_FRUIT,        "buggy fruit",   850,     0,  1000 },
+    { FOOD_AMBROSIA,     "buggy fruit",     0,     0,     0 },
+    { FOOD_ORANGE,       "buggy fruit",  1000,  -300,   300 },
+    { FOOD_BANANA,       "buggy fruit",  1000,  -300,   300 },
+    { FOOD_LEMON,        "buggy fruit",  1000,  -300,   300 },
+    { FOOD_PEAR,         "buggy fruit",   700,  -200,   200 },
+    { FOOD_APPLE,        "buggy fruit",   700,  -200,   200 },
+    { FOOD_APRICOT,      "buggy fruit",   700,  -200,   200 },
+    { FOOD_CHOKO,        "buggy fruit",   600,  -200,   200 },
+    { FOOD_RAMBUTAN,     "buggy fruit",   600,  -200,   200 },
+    { FOOD_LYCHEE,       "buggy fruit",   600,  -200,   200 },
+    { FOOD_STRAWBERRY,   "buggy fruit",   200,   -50,    50 },
+    { FOOD_GRAPE,        "buggy fruit",   100,   -20,    20 },
+    { FOOD_SULTANA,      "buggy fruit",    70,   -20,    20 },
+    { FOOD_CHEESE,       "buggy fruit",  1200,     0,     0 },
+    { FOOD_SAUSAGE,      "buggy fruit",  1200,   150,  -400 },
+    { FOOD_BEEF_JERKY,   "buggy fruit",  1500,   200,  -200 },
+    { FOOD_PIZZA,        "buggy fruit",  1500,     0,     0 },
 #endif
 };
 
@@ -777,6 +774,7 @@ const set<pair<object_class_type, int> > removed_items =
     { OBJ_RODS,      ROD_IRON },
     { OBJ_SCROLLS,   SCR_ENCHANT_WEAPON_II },
     { OBJ_SCROLLS,   SCR_ENCHANT_WEAPON_III },
+    { OBJ_SCROLLS,   SCR_RECHARGING},
     { OBJ_WANDS,     WAND_MAGIC_DARTS_REMOVED },
     { OBJ_WANDS,     WAND_FROST_REMOVED },
     { OBJ_WANDS,     WAND_FIRE_REMOVED },
@@ -786,9 +784,15 @@ const set<pair<object_class_type, int> > removed_items =
     { OBJ_WANDS,     WAND_HASTING_REMOVED },
     { OBJ_WANDS,     WAND_TELEPORTATION_REMOVED },
     { OBJ_WANDS,     WAND_SLOWING_REMOVED },
+    { OBJ_WANDS,     WAND_CONFUSION_REMOVED },
+    { OBJ_WANDS,     WAND_LIGHTNING_REMOVED },
     { OBJ_SCROLLS,   SCR_CURSE_WEAPON },
     { OBJ_SCROLLS,   SCR_CURSE_ARMOUR },
     { OBJ_SCROLLS,   SCR_CURSE_JEWELLERY },
+    { OBJ_FOOD,      FOOD_BREAD_RATION },
+    { OBJ_FOOD,      FOOD_ROYAL_JELLY },
+    { OBJ_FOOD,      FOOD_UNUSED },
+    { OBJ_FOOD,      FOOD_FRUIT },
 #endif
     // Outside the #if because we probably won't remove these.
     { OBJ_RUNES,     RUNE_ELF },
@@ -1161,13 +1165,11 @@ static iflags_t _full_ident_mask(const item_def& item)
 #endif
     case OBJ_SCROLLS:
     case OBJ_POTIONS:
+    case OBJ_WANDS:
         flagset = ISFLAG_KNOW_TYPE;
         break;
     case OBJ_STAVES:
         flagset = ISFLAG_KNOW_TYPE | ISFLAG_KNOW_CURSE;
-        break;
-    case OBJ_WANDS:
-        flagset = (ISFLAG_KNOW_TYPE | ISFLAG_KNOW_PLUSES);
         break;
     case OBJ_JEWELLERY:
         flagset = (ISFLAG_KNOW_CURSE | ISFLAG_KNOW_TYPE);
@@ -1576,85 +1578,45 @@ bool check_armour_size(const item_def &item, size_type size)
     return check_armour_size(static_cast<armour_type>(item.sub_type), size);
 }
 
-/**
- * Can the given item be recharged?
- *
- * @param it            The item in question.
- * @param hide_charged  Whether wands known to be full should be included.
- * @return              Whether the item can be recharged.
- *
- */
-bool item_is_rechargeable(const item_def &it, bool hide_charged)
-{
-    if (it.base_type != OBJ_WANDS)
-        return false;
-
-    if (!hide_charged)
-        return true;
-
-    // Don't offer wands already maximally charged.
-    if (item_ident(it, ISFLAG_KNOW_PLUSES)
-        && it.charges >= wand_max_charges(it))
-    {
-        return false;
-    }
-
-    return true;
-}
-
 int wand_charge_value(int type)
 {
     switch (type)
     {
     case WAND_CLOUDS:
     case WAND_SCATTERSHOT:
-        return 3;
+        return 9;
 
     case WAND_ICEBLAST:
-    case WAND_LIGHTNING:
     case WAND_ACID:
-        return 5;
+        return 15;
 
     default:
-        return 8;
+        return 24;
 
     case WAND_FLAME:
-    case WAND_CONFUSION:
     case WAND_RANDOM_EFFECTS:
-        return 16;
+        return 48;
     }
 }
 
-int wand_max_charges(const item_def &item)
-{
-    ASSERT(item.base_type == OBJ_WANDS);
 
-    const int charge_value = wand_charge_value(item.sub_type);
-
-    if (item.props.exists(PAKELLAS_SUPERCHARGE_KEY))
-        return 9 * charge_value / 2;
-
-    return charge_value * 3;
-}
-
+#if TAG_MAJOR_VERSION == 34
 /**
- * Is the given item a wand which is both empty & known to be empty?
+ * Is the given item a wand which is empty? Wands are normally destroyed when
+ * their charges are exhausted, but empty wands can still happen through
+ * transfered games.
  *
  * @param item  The item in question.
- * @return      Whether the wand is charge-id'd and empty, or at least known
- *              {empty}.
+ * @return      Whether the wand is empty.
  */
 bool is_known_empty_wand(const item_def &item)
 {
     if (item.base_type != OBJ_WANDS)
         return false;
 
-    // not charge-ID'd, but known empty (probably through hard experience)
-    if (item.used_count == ZAPCOUNT_EMPTY)
-        return true;
-
-    return item_ident(item, ISFLAG_KNOW_PLUSES) && item.charges <= 0;
+    return item_ident(item, ISFLAG_KNOW_TYPE) && item.charges <= 0;
 }
+#endif
 
 /**
  * For purpose of Ashenzari's monster equipment identification & warning
@@ -1676,9 +1638,7 @@ bool is_offensive_wand(const item_def& item)
 
     case WAND_FLAME:
     case WAND_PARALYSIS:
-    case WAND_CONFUSION:
     case WAND_ICEBLAST:
-    case WAND_LIGHTNING:
     case WAND_POLYMORPH:
     case WAND_ACID:
     case WAND_DISINTEGRATION:
@@ -1693,6 +1653,10 @@ bool is_offensive_wand(const item_def& item)
 bool is_enchantable_armour(const item_def &arm, bool unknown)
 {
     if (arm.base_type != OBJ_ARMOUR)
+        return false;
+
+    // Armour types that can never be enchanted.
+    if (!armour_is_enchantable(arm))
         return false;
 
     // If we don't know the plusses, assume enchanting is possible.
@@ -2022,7 +1986,7 @@ bool item_skills(const item_def &item, set<skill_type> &skills)
 
     // Jewellery with evokable abilities, wands and similar unwielded
     // evokers allow training.
-    if (item_is_evokable(item, false, false, true, false, true)
+    if (item_is_evokable(item, false, false, false, true)
         && !is_deck(item)
         || item.base_type == OBJ_JEWELLERY && gives_ability(item))
     {
@@ -2044,7 +2008,7 @@ bool item_skills(const item_def &item, set<skill_type> &skills)
     if (!you.could_wield(item, true, true))
         return !skills.empty();
 
-    if (item_is_evokable(item, false, false, false, false, false)
+    if (item_is_evokable(item, false, false, false, false)
         && !is_deck(item)
         || staff_uses_evocations(item)
         || item.base_type == OBJ_WEAPONS && gives_ability(item))
@@ -2338,7 +2302,7 @@ bool food_is_meaty(int food_type)
             "Bad food type %d (NUM_FOODS = %d)",
             food_type, NUM_FOODS);
 
-    return Food_prop[Food_index[food_type]].carn_mod > 0;
+    return Food_prop[Food_index[food_type]].herb_nutr == 0;
 }
 
 bool food_is_meaty(const item_def &item)
@@ -2349,43 +2313,15 @@ bool food_is_meaty(const item_def &item)
     return food_is_meaty(item.sub_type);
 }
 
-bool food_is_veggie(int food_type)
-{
-    ASSERTM(food_type >= 0 && food_type < NUM_FOODS,
-            "Bad food type %d (NUM_FOODS = %d)",
-            food_type, NUM_FOODS);
-
-    return Food_prop[Food_index[food_type]].herb_mod > 0;
-}
-
-bool food_is_veggie(const item_def &item)
-{
-    if (item.base_type != OBJ_FOOD)
-        return false;
-
-    return food_is_veggie(item.sub_type);
-}
-
 int food_value(const item_def &item)
 {
     ASSERT(item.defined() && item.base_type == OBJ_FOOD);
 
-    const int herb = you.get_mutation_level(MUT_HERBIVOROUS);
-    const int carn = you.get_mutation_level(MUT_CARNIVOROUS);
-
     const food_def &food = Food_prop[Food_index[item.sub_type]];
 
-    int ret = food.value;
-
-    ret += carn * food.carn_mod;
-    ret += herb * food.herb_mod;
-
-    return ret;
-}
-
-bool is_fruit(const item_def & item)
-{
-    return item.is_type(OBJ_FOOD, FOOD_FRUIT);
+    return you.get_mutation_level(MUT_HERBIVOROUS) > 0 ? food.herb_nutr
+         : you.get_mutation_level(MUT_CARNIVOROUS) > 0 ? food.carn_nutr
+                                                       : food.normal_nutr;
 }
 
 //

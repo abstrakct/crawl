@@ -201,6 +201,12 @@ related to) power.
 It is powerful enough to cancel the effects of Death's Door, although doing so
 will briefly paralyse the caster. It has no effect on the undead.
 %%%%
+Borgnjor's Vile Clutch spell
+
+Calls forth hands from corpses interred beneath the dungeon floor long ago.
+Enemies caught in the area will be held in place and constricted until they
+break free.
+%%%%
 Brain Feed spell
 
 Drains a portion of a visible enemy's intelligence. Such a loss is only
@@ -266,14 +272,6 @@ Chilling Breath spell
 
 Exhales a blast of frost that may knock back airborne targets.
 %%%%
-Cigotuvi's Embrace spell
-
-Violently mutilates all nearby corpses, wrapping them around the caster to
-serve as both armour and shield. The carrion will fall away over time, faster
-and faster as more is piled on, though increased power will tighten its grasp
-on the caster's body. It has no effect on casters in Statue Form, or with
-Ozocubu's Armour active.
-%%%%
 Cleansing Flame spell
 
 <Cleansing Flame ability>
@@ -318,10 +316,6 @@ exploding.
 Conjure Flame spell
 
 Creates a blazing column of flame in a targeted empty location.
-%%%%
-Control Undead spell
-
-Enslaves any undead in the vicinity of the caster.
 %%%%
 Controlled Blink spell
 
@@ -798,15 +792,14 @@ deadly shrapnel. It can be used on monsters made of ice, bone, or any wall-like
 substance, as well as those turned to stone by petrification. Its damage is
 strongly reduced by armour.
 
-Targets made from rock, stone, ice or bone will cause a small or medium-sized
-explosion. Metal targets will cause a small but particularly damaging
-explosion, and targets made from crystal will cause a large and extremely
-damaging explosion.
+Targets made from rock, stone, ice or bone will cause a small explosion. Metal
+targets will cause a small but more damaging explosion, and targets made from
+crystal will cause a large and more damaging explosion.
 
 At high power, this spell is capable of destroying some walls: rock, stone or
 metal walls have a chance of being destroyed with at least 5, 6 or 7 bars of
-power. Crystal walls are particularly brittle and have a chance of being
-destroyed at any power level.
+power respectively. Crystal walls are particularly brittle and have a chance of
+being destroyed at any power level.
 %%%%
 Legendary Destruction spell
 
@@ -1146,10 +1139,12 @@ shadow.
 %%%%
 Shatter spell
 
-Causes an enormous burst of concussive force around the caster. Flying and
-gelatinous creatures can escape the worst effects, and insubstantial creatures
-are entirely unaffected, but all others will be gravely injured by the blast.
-It may also destroy nearby walls.
+Causes an enormous burst of concussive force around the caster, dealing severe
+damage to all nearby creatures. It is especially effective against those made
+from ice, bone, or any wall-like substance (such as rock, metal or crystal), as
+well as those turned to stone by petrification. It is less effective against
+flying, gelatinous and insubstantial creatures. It may also destroy nearby
+walls.
 %%%%
 Shock spell
 
@@ -1558,6 +1553,14 @@ Makes a targeted creature more vulnerable to poison.
 Volley of Thorns spell
 
 Launches a small hail of sharp thorns.
+%%%%
+Vortex spell
+
+Turns the air near the caster into a mighty, short-lived vortex, doing
+tremendous damage to everyone caught in it. Those affected will also be swept
+up into the air and tossed around. Only the eye of the storm is a safe place,
+and it follows the caster. After the vortex fades, it cannot be called forth
+again for a short time.
 %%%%
 Wall of Brambles spell
 

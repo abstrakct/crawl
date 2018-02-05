@@ -221,10 +221,6 @@ Ein rundes Stück Holz mit einer Sehne, zum Schießen von Pfeilen. Es verursacht
 guten Schaden im Kampf, und ein fähiger Benutzer kann es sehr wirksam
 verwenden.
 %%%%
-bread ration
-
-Eine sättigende Mahlzeit aus abgestandenem, aber herzhaftem Brot.
-%%%%
 buckler
 
 Ein kleines Stück von Holz und Metall, um auf einem Arm für die Verteidigung
@@ -405,10 +401,6 @@ lychee
 
 Eine tropische Frucht.
 %%%%
-meat ration
-
-Eine sättigende Ration aus getrocknetem und konserviertem Fleisch.
-%%%%
 orange
 
 Eine köstliche, saftige und orangene Frucht.
@@ -578,12 +570,6 @@ rod of inaccuracy
 
 Dieser Stab erlaubt seinem Benutzer, einen kräftigen aber äußerst ungenauen
 Energieblitz abzuschießen.
-%%%%
-royal jelly
-
-Eine besonders reiche und goldene gallertartige Sache. Der Konsum wird
-verlorene Fähigkeiten wieder herstellen, zusätzlich zu der Ernährung die es
-bietet.
 %%%%
 rune of zot
 
@@ -773,11 +759,6 @@ wand of cold
 
 Ein magisches Gerät welches großartige Bolzen aus Kälte wirft.
 %%%%
-wand of confusion
-
-Ein magisches Gerät, das Verwirrung und Verwirrung in einem Zielwesen
-veranlasst.
-%%%%
 wand of disintegration
 
 Ein magisches Gerät, das die physische Struktur von irgendetwas außer den
@@ -798,10 +779,6 @@ Ein magisches Gerät welches explodierende Feuerstöße wirft.
 wand of invisibility
 
 Ein magisches Gerät welches eine Kreatur vor den Blicken Anderer versteckt.
-%%%%
-wand of lightning
-
-Ein magisches Gerät welches großartige Bolzen aus Blitzen wirft.
 %%%%
 wand of magic darts
 

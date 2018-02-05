@@ -418,7 +418,6 @@ unsigned int item_value(item_def item, bool ident)
                 break;
 
             case WAND_ICEBLAST:
-            case WAND_LIGHTNING:
             case WAND_DISINTEGRATION:
                 valued += 40;
                 good = true;
@@ -428,10 +427,6 @@ unsigned int item_value(item_def item, bool ident)
             case WAND_POLYMORPH:
             case WAND_PARALYSIS:
                 valued += 20;
-                break;
-
-            case WAND_CONFUSION:
-                valued += 15;
                 break;
 
             case WAND_FLAME:
@@ -533,17 +528,8 @@ unsigned int item_value(item_def item, bool ident)
     case OBJ_FOOD:
         switch (item.sub_type)
         {
-        case FOOD_MEAT_RATION:
-        case FOOD_BREAD_RATION:
+        case FOOD_RATION:
             valued = 50;
-            break;
-
-        case FOOD_ROYAL_JELLY:
-            valued = 20;
-            break;
-
-        case FOOD_FRUIT:
-            valued = 15;
             break;
 
         case FOOD_CHUNK:
@@ -570,7 +556,6 @@ unsigned int item_value(item_def item, bool ident)
                 valued += 200;
                 break;
 
-            case SCR_RECHARGING:
             case SCR_SUMMONING:
                 valued += 95;
                 break;
@@ -1311,7 +1296,7 @@ void ShopMenu::resort()
         break;
     case ORDER_TYPE:
         sort(begin(items), end(items),
-             [this](MenuEntry* a, MenuEntry* b) -> bool
+             [](MenuEntry* a, MenuEntry* b) -> bool
              {
                  const auto ai = dynamic_cast<ShopEntry*>(a)->item;
                  const auto bi = dynamic_cast<ShopEntry*>(b)->item;

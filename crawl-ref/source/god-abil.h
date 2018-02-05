@@ -96,6 +96,7 @@ bool beogh_gift_item();
 bool beogh_resurrect();
 
 bool yred_injury_mirror();
+bool yred_can_enslave_soul(monster* mon);
 void yred_make_enslaved_soul(monster* mon, bool force_hostile = false);
 
 bool kiku_receive_corpses(int pow);
@@ -120,7 +121,7 @@ int fedhas_fungal_bloom();
 spret_type fedhas_sunlight(bool fail = false);
 void process_sunlights(bool future = false);
 bool prioritise_adjacent(const coord_def& target, vector<coord_def>& candidates);
-bool fedhas_plant_ring_from_fruit();
+bool fedhas_plant_ring_from_rations();
 int fedhas_rain(const coord_def &target);
 int count_corpses_in_los(vector<stack_iterator> *positions);
 int fedhas_check_corpse_spores(bool quiet = false);
@@ -179,7 +180,6 @@ int cell_has_valid_target(coord_def where);
 bool ru_apocalypse();
 string ru_sacrifice_vector(ability_type sac);
 
-bool pakellas_check_quick_charge(bool quiet);
 int pakellas_effective_hex_power(int pow);
 int pakellas_surge_devices();
 
@@ -191,3 +191,8 @@ bool hepliaklqana_choose_ancestor_type(int ancestor_type);
 spret_type hepliaklqana_idealise(bool fail);
 spret_type hepliaklqana_transference(bool fail);
 void hepliaklqana_choose_identity();
+
+bool wu_jian_can_wall_jump_in_principle(const coord_def& target);
+bool wu_jian_can_wall_jump(const coord_def& target, string &error_ret);
+bool wu_jian_do_wall_jump(coord_def targ, bool ability);
+bool wu_jian_wall_jump_ability();

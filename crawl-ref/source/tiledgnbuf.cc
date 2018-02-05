@@ -494,10 +494,25 @@ void DungeonCellBuffer::pack_foreground(int x, int y, const packed_cell &cell)
         m_buf_icons.add(TILEI_SWIFT, x, y, -status_shift, 0);
         status_shift += 6;
     }
+    if (fg & TILE_FLAG_PINNED)
+    {
+        m_buf_icons.add(TILEI_PINNED, x, y, -status_shift, 0);
+        status_shift += 6;
+    }
     if (fg & TILE_FLAG_RECALL)
     {
         m_buf_icons.add(TILEI_RECALL, x, y, -status_shift, 0);
         status_shift += 9;
+    }
+    if (fg & TILE_FLAG_VILE_CLUTCH)
+    {
+        m_buf_icons.add(TILEI_VILE_CLUTCH, x, y, -status_shift, 0);
+        status_shift += 11;
+    }
+    if (fg & TILE_FLAG_POSSESSABLE)
+    {
+        m_buf_icons.add(TILEI_POSSESSABLE, x, y, -status_shift, 0);
+        status_shift += 6;
     }
 
     // Summoned and anim. weap. icons will overlap if you have a

@@ -448,15 +448,12 @@ void zap_wand(int slot)
     if (you.equip[EQ_WEAPON] == item_slot)
         you.wield_change = true;
 
-    const bool has_charges = wand.charges > 0;
-    if (!has_charges && wand.used_count == ZAPCOUNT_EMPTY)
+    if (wand.charges <= 0)
     {
         mpr("This wand has no charges.");
         return;
     }
 
-    // Will waste charges.
-    const bool wasteful = !item_ident(wand, ISFLAG_KNOW_PLUSES);
     int power = (15 + you.skill(SK_EVOCATIONS, 7) / 2)
                 * (you.get_mutation_level(MUT_MP_WANDS) + 3) / 3;
 
@@ -470,8 +467,6 @@ void zap_wand(int slot)
     else if (ret == SPRET_FAIL)
     {
         canned_msg(MSG_NOTHING_HAPPENS);
-        // It's an empty wand; inscribe it that way.
-        wand.used_count = ZAPCOUNT_EMPTY;
         you.turn_is_over = true;
         return;
     }
@@ -481,150 +476,20 @@ void zap_wand(int slot)
 
     // Take off a charge.
     wand.charges--;
-    // And a few more, if you didn't know the wand's charges.
-    int wasted_charges = 0;
-    if (wasteful)
+
+    if (wand.charges == 0)
     {
-#ifdef DEBUG_DIAGNOSTICS
-        const int initial_charge = wand.plus;
-#endif
+        ASSERT(in_inventory(wand));
 
-        wasted_charges = 1 + random2(2); //1-2
-        wand.charges = max(0, wand.charges - wasted_charges);
-
-        dprf("Wasted %d charges (wand %d -> %d)", wasted_charges,
-             initial_charge, wand.charges);
-        mpr("Evoking this partially-identified wand wasted a few charges.");
+        mpr("The now-empty wand crumbles to dust.");
+        dec_inv_item_quantity(wand.link, 1);
     }
-
-    // Zap counts count from the last recharge.
-    if (wand.used_count == ZAPCOUNT_RECHARGED)
-        wand.used_count = 0;
-    // Increment zap count.
-    if (wand.used_count >= 0)
-    {
-        wand.used_count++;
-        if (wasteful)
-            wand.used_count += wasted_charges;
-    }
-
-    if (item_type_known(wand)
-        && (item_ident(wand, ISFLAG_KNOW_PLUSES)
-            || you.skill_rdiv(SK_EVOCATIONS) > random2(27)))
-    {
-        if (!item_ident(wand, ISFLAG_KNOW_PLUSES))
-        {
-            mpr("Your skill with magical items lets you calculate "
-                "the power of this device...");
-        }
-
-        mprf("This wand has %d charge%s left.",
-             wand.plus, wand.plus == 1 ? "" : "s");
-
-        set_ident_flags(wand, ISFLAG_KNOW_PLUSES);
-    }
-    // Mark as empty if necessary.
-    if (wand.charges == 0 && wand.flags & ISFLAG_KNOW_PLUSES)
-        wand.used_count = ZAPCOUNT_EMPTY;
 
     practise_evoking(1);
     count_action(CACT_EVOKE, EVOC_WAND);
     alert_nearby_monsters();
 
     you.turn_is_over = true;
-}
-
-int recharge_wand(bool known, const string &pre_msg, int num, int den)
-{
-    int item_slot = -1;
-    bool divine = num >= 0 && den >= 0;
-    do
-    {
-        if (item_slot == -1)
-        {
-            item_slot = prompt_invent_item("Charge which item?", MT_INVLIST,
-                                           OSEL_RECHARGE,
-                                           OPER_ANY,
-                                           invprompt_flag::escape_only);
-        }
-
-        if (item_slot == PROMPT_NOTHING)
-            return known ? -1 : 0;
-
-        if (item_slot == PROMPT_ABORT)
-        {
-            if (known
-                || crawl_state.seen_hups
-                || yesno("Really abort (and waste the scroll)?", false, 0))
-            {
-                canned_msg(MSG_OK);
-                return known ? -1 : 0;
-            }
-            else
-            {
-                item_slot = -1;
-                continue;
-            }
-        }
-
-        item_def &wand = you.inv[ item_slot ];
-
-        if (!item_is_rechargeable(wand, known))
-        {
-            mpr("Choose an item to recharge, or Esc to abort.");
-            more();
-
-            // Try again.
-            item_slot = -1;
-            continue;
-        }
-
-        int charge_gain = wand_max_charges(wand) / 3;
-
-        const int new_charges =
-            divine
-            ? min<int>(charge_gain * 3,
-                       max<int>(wand.charges + 1,
-                                wand.charges + 3 * charge_gain * num / den))
-            : max<int>(wand.charges,
-                       min(charge_gain * 3,
-                           wand.charges +
-                           1 + random2avg(((charge_gain - 1) * 3) + 1, 3)));
-
-        const bool charged = (new_charges > wand.plus);
-
-        string desc;
-
-        if (charged && item_ident(wand, ISFLAG_KNOW_PLUSES))
-        {
-            desc = make_stringf(" and now has %d charge%s",
-                                new_charges, new_charges == 1 ? "" : "s");
-        }
-
-        if (known && !pre_msg.empty())
-            mpr(pre_msg);
-
-        mprf("%s %s for a moment%s.",
-             wand.name(DESC_YOUR).c_str(),
-             charged ? "glows" : "flickers",
-             desc.c_str());
-
-        if (!charged && !item_ident(wand, ISFLAG_KNOW_PLUSES))
-        {
-            mprf("It has %d charges and is fully charged.", new_charges);
-            set_ident_flags(wand, ISFLAG_KNOW_PLUSES);
-        }
-
-        // Reinitialise zap counts.
-        wand.charges  = new_charges;
-        wand.used_count = ZAPCOUNT_RECHARGED;
-
-        you.wield_change = true;
-        return 1;
-    }
-    while (true);
-
-    return 0;
 }
 
 // return a slot that has manual for given skill, or -1 if none exists
@@ -1629,7 +1494,7 @@ bool evoke_item(int slot, bool check_range)
 
     item_def& item = you.inv[slot];
     // Also handles messages.
-    if (!item_is_evokable(item, true, false, false, true))
+    if (!item_is_evokable(item, true, false, true))
         return false;
 
     bool did_work   = false;  // "Nothing happens" message

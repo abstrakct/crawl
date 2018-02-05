@@ -1,3 +1,128 @@
+Stone Soup 0.21 (20180105)
+--------------------------
+
+Highlights
+----------
+* New species: Gnolls
+* New god: Wu Jian Council
+* New spell: Borgnjor's Vile Clutch
+
+Branches, Environment
+---------------------
+* The rate at which unique Pan lord levels appear in Pandemonium is increased.
+* Transporters now have a 'landing site' that indicates their destination.
+* The Hellbinder and Cloud Mage Wizlabs have been revamped to give greater and
+  more varied challenges as well as improved loot.
+
+Character
+---------
+* New species: Gnolls, with extremely high aptitudes for all skills, but
+  an inability to focus: Gnolls always train all skills equally, regardless
+  of whether they have the requisite items or spells.
+* Ogres now have better aptitudes in shortblades, longblades, and axes.
+
+Gods
+----
+* New (temple) god: Wu Jian Council
+  - Grants free 'martial' attacks from certain movement actions:
+    * 0*: Moving toward an enemy triggers 'Lunge', which attacks the enemy and
+      does extra damage.
+    * 1*: Moving between tiles adjacent to a monster triggers 'Whirlwind',
+      which attacks all adjacent foes and 'pins' them, preventing one turn of
+      movement.
+    * 2*: Moving against solid obstacles triggers a two-turn Wall Jump, moving
+      two tiles in the opposite direction and attacking any adjacent enemies.
+      This ability can also be triggered via an (a)bility, and the movement-
+      based mode can be disabled using `wall_jump_move = false` in your rc
+      file for more careful play.
+  - 3*: Active 'Serpent's Lash' ability, granting two free movement actions,
+    of which any martial actions will never miss.
+  - 5*: Active 'Heavenly Storm' ability, creating opaque clouds and increasing
+    your martial prowess while you continue to use 'martial' attacks.
+  - Piety is gained through defeating foes.
+* Gozag Potion Petition no longer offers haste/berserk potions for species
+  that can't haste/berserk.
+* Zin blocks 100% of mutations at 6* piety. At that piety level, potions of
+  mutation now only remove mutations and don't cause piety loss.
+* Zin no longer has a mutation removal one-time ability at 6* piety.
+* Makhleb's Minor Destruction has slightly lowered range, and Makhleb's Major
+  Destruction has slightly increased range.
+
+Interface
+---------
+* Players can now set training targets for skills.
+  - Press = on the skill screen, select a skill, and enter a skill level.
+  - Training of that skill is disabled when it reaches the specified level.
+* Water species except for merfolk autoexplore/travel through shallow water.
+* Diagonal shift-running now stops properly at doors.
+* Draconian players now show their hat tiles in Tiles/WebTiles.
+* New 'tc_forbidden' RC option to set color of squares forbidden by travel.
+* New xp_by_level morgue table to track XP sources on a per-level basis.
+* New -force-map objstat/mapstat option to always place a given map on each
+  level.
+* New objstat fields for tracking monster numbers/XP from vaults.
+* Many new tiles for artefact weapons and monsters.
+
+Items
+-----
+* Wands of the same type merge charges upon pickup and wands have no cap on
+  charges.
+* Wands identify charges upon pickup and are destroyed when their last charge
+  is used.
+* Items in a doorways no longer prevent closing doors in most instances.
+  - Items get pushed out of the doorway when the player closes the door.
+  - Doors refuse to close only if the items would fall into deep water or lava.
+* Potions of mutations remove fewer mutations on average and are a bit rarer.
+* Fan of Gales now disperses clouds at the user's location.
+* Un-equipping an item currently giving you invisibility now gives extra
+  contamination.
+* Rods of lightning XP-recharge even when only partially used and only grant a
+  power bonus for shots over consecutive turns.
+* Scarves are never made as artefacts.
+* Wands of random effects include malmutate in the set of possible effects.
+* Permanent food has been simplified.
+  - Rations are now the only type of permanent food, replacing bread and meat
+    rations, fruit, and royal jelly.
+  - Ration item generation and well as the herbivore and carnivore mutations
+    have been balanced to keep available nutrition the same as before.
+  - Fedhas abilities that formerly required a piece of fruit instead require
+    two rations.
+* Removed:
+  - Wands of confusion and lightning.
+  - Scrolls of recharging.
+  - Mutagenic chunks.
+
+Monsters
+--------
+* Monsters no longer spawn after level-generation in most places.
+  - This also eliminates the "super OOD" timer that could generate
+    exceptionally hard monsters after a long time on the level.
+  - The number of monsters created during level generation is increased
+    slightly to compensate.
+  - Pandemonium and Abyss are unaffected by this change.
+* A fraction of the monsters generated with a level are created awake,
+  but never near stairs.
+* Air elementals now have a Vortex ability, which creates a short-range,
+  short-duration tornado effect.
+* Player ghosts have normal speed regardless of species, never have a chaos
+  ego on their melee attack, and no longer generate in portal branches.
+* Pandemonium lords can no longer have the Shatter spell.
+
+Spells
+------
+* New spell: Borgnjor's Vile Clutch (L5 Necromancy/Earth); calls forth undead
+  hands from the earth over a smite-targeted area to constrict hostile monsters.
+  Appears in the Necromancer starting book, the book of Unlife, and the book of
+  Dreams.
+* Shatter's damage has been simplified to use one of three dice values for
+  susceptibility, and can now slightly damage insubstantial monsters. Intrinsic
+  player/monster susceptibility takes precedence for damage over flight status.
+* Lee's Rapid Deconstruction now gives each material type a fixed explosion
+  damage and size that doesn't increase when a wall is destroyed.
+* Removed:
+  - Control Undead.
+  - Cigotuvi's Embrace.
+
 Stone Soup 0.20 (20170525)
 --------------------------
 
@@ -17,6 +142,8 @@ Branches, Environment
   nearby instead of stairs.
 * New transporter dungeon feature: a one-way portal to elsewhere on the level.
   Currently used in a number of new loot vaults.
+* The last levels of Cocytus and Gehenna never require flight to reach the
+  rune.
 
 Character
 ---------
@@ -155,6 +282,7 @@ Modding/contribution support
     - https://github.com/crawl/crawl/blob/master/crawl-ref/docs/develop/god_creation.txt
     - https://github.com/crawl/crawl/blob/master/crawl-ref/docs/develop/mutation_creation.txt
     - https://github.com/crawl/crawl/blob/master/crawl-ref/docs/develop/species_creation.txt
+
 
 Stone Soup 0.19.1 (20161123)
 --------------------------------------------

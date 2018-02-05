@@ -55,7 +55,7 @@ void InventoryRegion::pack_buffers()
                     break;
 
                 int num_floor = tile_dngn_count(env.tile_default.floor);
-                tileidx_t t = env.tile_default.floor + m_flavour[i] % num_floor;
+                tileidx_t t = env.tile_default.floor + i % num_floor;
                 m_buf.add_dngn_tile(t, x, y);
             }
             else
@@ -651,12 +651,8 @@ static void _fill_item_info(InventoryTile &desc, const item_info &item)
         // -1 specifies don't display anything
         desc.quantity = (item.quantity == 1) ? -1 : item.quantity;
     }
-    else if (type == OBJ_WANDS
-             && ((item.flags & ISFLAG_KNOW_PLUSES)
-                 || item.used_count == ZAPCOUNT_EMPTY))
-    {
+    else if (type == OBJ_WANDS && item.flags & ISFLAG_KNOW_TYPE)
         desc.quantity = item.charges;
-    }
     else
         desc.quantity = -1;
 

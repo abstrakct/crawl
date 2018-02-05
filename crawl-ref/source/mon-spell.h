@@ -903,6 +903,12 @@ static const mon_spellbook mspell_list[] =
     },
 
     // ('E') Elementals.
+    {  MST_AIR_ELEMENTAL,
+      {
+       { SPELL_VORTEX, 80, MON_SPELL_NATURAL},
+      }
+    },
+
     {  MST_ELEMENTAL_WELLSPRING,
       {
        { SPELL_PRIMAL_WAVE, 65, MON_SPELL_MAGICAL },
@@ -2113,7 +2119,7 @@ static const mon_spellbook mspell_list[] =
     {  MST_HELLBINDER,
       {
        { SPELL_HURL_DAMNATION, 14, MON_SPELL_WIZARD },
-       { SPELL_SUMMON_MINOR_DEMON, 14, MON_SPELL_WIZARD },
+       { SPELL_SUMMON_GREATER_DEMON, 24, MON_SPELL_WIZARD },
        { SPELL_SUMMON_DEMON, 14, MON_SPELL_WIZARD },
        { SPELL_HASTE, 14, MON_SPELL_WIZARD },
        { SPELL_BLINK_AWAY, 14, MON_SPELL_WIZARD },
@@ -2241,5 +2247,4 @@ static const mon_spellbook mspell_list[] =
        { SPELL_PHANTOM_MIRROR, 33, MON_SPELL_MAGICAL },
       }
     },
-
 };

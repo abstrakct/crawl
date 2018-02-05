@@ -104,7 +104,6 @@ static map<enchant_type, monster_info_flags> trivial_ench_mb_mappings = {
     { ENCH_DEFLECT_MISSILES, MB_DEFLECT_MSL },
     { ENCH_RESISTANCE,      MB_RESISTANCE },
     { ENCH_HEXED,           MB_HEXED },
-    { ENCH_BONE_ARMOUR,     MB_BONE_ARMOUR },
     { ENCH_BRILLIANCE_AURA, MB_BRILLIANCE_AURA },
     { ENCH_EMPOWERED_SPELLS, MB_EMPOWERED_SPELLS },
     { ENCH_GOZAG_INCITE,    MB_GOZAG_INCITED },
@@ -114,7 +113,8 @@ static map<enchant_type, monster_info_flags> trivial_ench_mb_mappings = {
     { ENCH_INFESTATION,     MB_INFESTATION },
     { ENCH_STILL_WINDS,     MB_STILL_WINDS },
     { ENCH_SLOWLY_DYING,    MB_SLOWLY_DYING },
-    { ENCH_DISTRACTED_ACROBATICS,     MB_DISTRACTED },
+    { ENCH_WHIRLWIND_PINNED, MB_PINNED },
+    { ENCH_VILE_CLUTCH, MB_VILE_CLUTCH},
 };
 
 static monster_info_flags ench_to_mb(const monster& mons, enchant_type ench)
@@ -359,7 +359,6 @@ monster_info::monster_info(monster_type p_type, monster_type p_base_type)
 
     fire_blocker = DNGN_UNSEEN;
 
-    i_ghost.acting_part = MONS_0;
     if (mons_is_pghost(type))
     {
         i_ghost.species = SP_HUMAN;
@@ -719,29 +718,29 @@ monster_info::monster_info(const monster* m, int milev)
     constrictor_name = "";
     constricting_name.clear();
 
-    // name of what this monster is constricted by, if any
-    if (m->is_constricted())
+    // Name of what this monster is directly constricted by, if any
+    if (m->is_directly_constricted())
     {
         const actor * const constrictor = actor_by_mid(m->constricted_by);
-        if (constrictor)
-        {
-            constrictor_name = (m->held == HELD_MONSTER ? "held by "
-                                                        : "constricted by ")
-                               + constrictor->name(_article_for(constrictor),
-                                                   true);
-        }
+        ASSERT(constrictor);
+        constrictor_name = (constrictor->constriction_does_damage(true) ?
+                            "constricted by " : "held by ")
+                           + constrictor->name(_article_for(constrictor),
+                                               true);
     }
 
-    // names of what this monster is constricting, if any
+    // Names of what this monster is directly constricting, if any
     if (m->constricting)
     {
-        const char *gerund = m->constriction_damage() ? "constricting "
-                                                      : "holding ";
+        const char *participle =
+            m->constriction_does_damage(true) ? "constricting " : "holding ";
         for (const auto &entry : *m->constricting)
         {
-            if (const actor* const constrictee = actor_by_mid(entry.first))
+            const actor* const constrictee = actor_by_mid(entry.first);
+
+            if (constrictee && constrictee->is_directly_constricted())
             {
-                constricting_name.push_back(gerund
+                constricting_name.push_back(participle
                                             + constrictee->name(
                                                   _article_for(constrictee),
                                                   true));
@@ -1208,6 +1207,8 @@ static string _verbose_info0(const monster_info& mi)
         return "webbed";
     if (mi.is(MB_PETRIFIED))
         return "petrified";
+    if (mi.is(MB_PINNED))
+        return "pinned";
     if (mi.is(MB_PETRIFYING))
         return "petrifying";
     if (mi.is(MB_MAD))
@@ -1403,6 +1404,8 @@ vector<string> monster_info::attributes() const
         v.emplace_back("frenzied and insane");
     if (is(MB_CONFUSED))
         v.emplace_back("confused");
+    if (is(MB_PINNED))
+        v.emplace_back("pinned by a whirlwind");
     if (is(MB_INVISIBLE))
         v.emplace_back("slightly transparent");
     if (is(MB_CHARMED))
@@ -1509,8 +1512,6 @@ vector<string> monster_info::attributes() const
         v.emplace_back("unusually resistant");
     if (is(MB_HEXED))
         v.emplace_back("control wrested from you");
-    if (is(MB_BONE_ARMOUR))
-        v.emplace_back("corpse armoured");
     if (is(MB_BRILLIANCE_AURA))
         v.emplace_back("aura of brilliance");
     if (is(MB_EMPOWERED_SPELLS))
@@ -1536,6 +1537,8 @@ vector<string> monster_info::attributes() const
         v.emplace_back("infested");
     if (is(MB_STILL_WINDS))
         v.emplace_back("stilling the winds");
+    if (is(MB_VILE_CLUTCH))
+        v.emplace_back("constricted by zombie hands");
     return v;
 }
 

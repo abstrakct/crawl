@@ -29,6 +29,7 @@
 #include "player-stats.h"
 #include "stringutil.h"
 #include "state.h"
+#include "terrain.h"
 #include "transform.h"
 #include "traps.h"
 #include "travel.h"
@@ -257,6 +258,14 @@ bool i_feel_safe(bool announce, bool want_move, bool just_monsters,
 
             return false;
         }
+
+        if (!actor_slime_wall_immune(&you) && count_adjacent_slime_walls(you.pos()) > 0)
+        {
+            if (announce)
+                mprf(MSGCH_WARN, "You're standing next to a slime covered wall!");
+
+            return false;
+        }
     }
 
     // Monster check.
@@ -416,9 +425,6 @@ void revive()
     set_hunger(HUNGER_DEFAULT, true);
     restore_stat(STAT_ALL, 0, true);
 
-#if TAG_MAJOR_VERSION == 34
-    you.attribute[ATTR_DELAYED_FIREBALL] = 0;
-#endif
     clear_trapping_net();
     you.attribute[ATTR_DIVINE_VIGOUR] = 0;
     you.attribute[ATTR_DIVINE_STAMINA] = 0;

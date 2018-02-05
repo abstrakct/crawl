@@ -544,6 +544,8 @@ int line_reader::read_line(const string &prefill)
  *                      edge or previous position (if any).
  *                      If the buffer is empty or `clear_previous` is true,
  *                      has no impact.
+ *                      For webtiles, this corresponds with whether the
+ *                      prefill starts selected or not.
  * @return 0 on success, otherwise, the last character read.
  */
 int line_reader::read_line(bool clear_previous, bool reset_cursor)
@@ -575,6 +577,7 @@ int line_reader::read_line(bool clear_previous, bool reset_cursor)
                                 make_stringf("%p", (void *)history));
     }
     tiles.json_write_string("prefill", buffer);
+    tiles.json_write_bool("select_prefill", reset_cursor);
     if (prompt.length())
         tiles.json_write_string("prompt", prompt);
     tiles.json_write_int("maxlen", (int) bufsz - 1);
@@ -603,7 +606,7 @@ int line_reader::read_line(bool clear_previous, bool reset_cursor)
 
 /**
  * (Re-)print the buffer from start onwards, potentially overprinting
- * with spaces.
+ * with spaces. Does *not* set cursor position.
  *
  * @param start the position in the buffer to print from.
  * @param how many spaces to overprint.
@@ -654,14 +657,18 @@ void line_reader::kill_to_begin()
     if (!pos || cur == buffer)
         return;
 
-    int rest = length - (cur - buffer);
-    buffer[length] = 0;
-    cursorto(0);
+    const int rest = length - (cur - buffer);
+    const int overwrite_len = pos;
+
     memmove(buffer, cur, rest);
-    buffer[length = rest] = 0;;
+    length = rest;
+    buffer[length] = 0;
     pos = 0;
     cur = buffer;
-    print_segment(0, rest + 1);
+    // TODO: calculate strwidth of deleted text for more accurate
+    // overwriting.
+    cursorto(pos);
+    print_segment(0, overwrite_len);
     cursorto(pos);
 }
 
@@ -756,17 +763,8 @@ void line_reader::insert_char_at_cursor(int ch)
         length += len;
         buffer[length] = 0;
         pos += w;
-        if (!w)
-        {
-            cursorto(0);
-            print_segment();
-        }
-        else
-        {
-            putwch(ch);
-            if (*cur)
-                print_segment(cur - buffer);
-        }
+        cursorto(0);
+        print_segment();
         cursorto(pos);
     }
 }
@@ -964,12 +962,13 @@ void fontbuf_line_reader::cursorto(int newcpos)
 
     if (newcpos >= length)
         c = ' ';
-    else
-        utf8towc(&c, buffer + newcpos);
+    utf8towc(&c, buffer + newcpos);
+
     pos_y = start.y;
     string preface(buffer, newcpos);
     pos_x = start.x + m_font_buf.get_font_wrapper().string_width(preface.c_str());
 
+    // redraw with a cursor
     m_font_buf.get_font_wrapper().store(m_font_buf, pos_x, pos_y, c,
         term_colours[LIGHTGRAY], term_colours[DARKGRAY]);
     m_font_buf.draw();

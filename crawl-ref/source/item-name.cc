@@ -611,10 +611,8 @@ static const char* _wand_type_name(int wandtype)
     {
     case WAND_FLAME:           return "flame";
     case WAND_PARALYSIS:       return "paralysis";
-    case WAND_CONFUSION:       return "confusion";
     case WAND_DIGGING:         return "digging";
     case WAND_ICEBLAST:        return "iceblast";
-    case WAND_LIGHTNING:       return "lightning";
     case WAND_POLYMORPH:       return "polymorph";
     case WAND_ENSLAVEMENT:     return "enslavement";
     case WAND_ACID:            return "acid";
@@ -715,23 +713,25 @@ static const char* scroll_type_name(int scrolltype)
     case SCR_ENCHANT_ARMOUR:     return "enchant armour";
     case SCR_TORMENT:            return "torment";
     case SCR_RANDOM_USELESSNESS: return "random uselessness";
-#if TAG_MAJOR_VERSION == 34
-    case SCR_CURSE_WEAPON:       return "curse weapon";
-    case SCR_CURSE_ARMOUR:       return "curse armour";
-    case SCR_CURSE_JEWELLERY:    return "curse jewellery";
-#endif
     case SCR_IMMOLATION:         return "immolation";
     case SCR_BLINKING:           return "blinking";
     case SCR_MAGIC_MAPPING:      return "magic mapping";
     case SCR_FOG:                return "fog";
     case SCR_ACQUIREMENT:        return "acquirement";
     case SCR_BRAND_WEAPON:       return "brand weapon";
-    case SCR_RECHARGING:         return "recharging";
     case SCR_HOLY_WORD:          return "holy word";
     case SCR_VULNERABILITY:      return "vulnerability";
     case SCR_SILENCE:            return "silence";
     case SCR_AMNESIA:            return "amnesia";
-    default:                     return "bugginess";
+#if TAG_MAJOR_VERSION == 34
+    case SCR_CURSE_WEAPON:       return "curse weapon";
+    case SCR_CURSE_ARMOUR:       return "curse armour";
+    case SCR_CURSE_JEWELLERY:    return "curse jewellery";
+#endif
+    default:                     return item_type_removed(OBJ_SCROLLS,
+                                                          scrolltype)
+                                     ? "removedness"
+                                     : "bugginess";
     }
 }
 
@@ -1770,9 +1770,6 @@ string item_def::name_aux(description_level_type desc, bool terse, bool ident,
             break;
         }
 
-        if (!dbname && props.exists(PAKELLAS_SUPERCHARGE_KEY))
-            buff << "supercharged ";
-
         if (know_type)
             buff << "wand of " << _wand_type_name(item_typ);
         else
@@ -1785,25 +1782,9 @@ string item_def::name_aux(description_level_type desc, bool terse, bool ident,
         if (dbname)
             break;
 
-        if (know_type || know_pluses) // probably know_type is sufficient?
-        {
-            buff << " (";
-            if (know_pluses)
-                buff << charges;
-            else
-                buff << "?";
-            buff << "/" << wand_max_charges(*this) << ")";
-        }
+        if (know_type && charges > 0)
+            buff << " (" << charges << ")";
 
-        if (!know_pluses && with_inscription)
-        {
-            if (used_count == ZAPCOUNT_EMPTY)
-                buff << " {empty}";
-            else if (used_count == ZAPCOUNT_RECHARGED)
-                buff << " {recharged}";
-            else if (used_count > 0)
-                buff << " {zapped: " << used_count << '}';
-        }
         break;
 
     case OBJ_POTIONS:
@@ -1854,16 +1835,10 @@ string item_def::name_aux(description_level_type desc, bool terse, bool ident,
     case OBJ_FOOD:
         switch (item_typ)
         {
-        case FOOD_MEAT_RATION: buff << "meat ration"; break;
-        case FOOD_BREAD_RATION: buff << "bread ration"; break;
-        case FOOD_ROYAL_JELLY: buff << "royal jelly"; break;
-        case FOOD_FRUIT: buff << "fruit"; break;
+        case FOOD_RATION: buff << "ration"; break;
         case FOOD_CHUNK:
             switch (determine_chunk_effect(*this))
             {
-                case CE_MUTAGEN:
-                    buff << "mutagenic ";
-                    break;
                 case CE_NOXIOUS:
                     buff << "inedible ";
                     break;
@@ -2378,21 +2353,14 @@ public:
             case FOOD_CHUNK:
                 name = "chunks";
                 break;
-            case FOOD_MEAT_RATION:
-                name = "meat rations";
-                break;
-            case FOOD_BREAD_RATION:
-                name = "bread rations";
+            case FOOD_RATION:
+                name = "rations";
                 break;
 #if TAG_MAJOR_VERSION == 34
             default:
+                name = "removed food";
+                break;
 #endif
-            case FOOD_FRUIT:
-                name = "fruit";
-                break;
-            case FOOD_ROYAL_JELLY:
-                name = "royal jellies";
-                break;
             }
         }
         else if (item->base_type == OBJ_MISCELLANY)
@@ -2521,7 +2489,7 @@ static void _add_fake_item(object_class_type base, int sub,
     ptmp->rnd       = 1;
 
     if (base == OBJ_WANDS && sub != NUM_WANDS)
-        ptmp->charges = wand_max_charges(*ptmp);
+        ptmp->charges = wand_charge_value(ptmp->sub_type);
     else if (base == OBJ_GOLD)
         ptmp->quantity = 18;
     else if (ptmp->is_type(OBJ_FOOD, FOOD_CHUNK))
@@ -2699,10 +2667,6 @@ static MenuEntry* _fixup_runeorb_entry(MenuEntry* me)
         text += colour_to_str(colour);
         text += ">";
         entry->text = text;
-        // Use the generic tile for rune that haven't been gotten yet, to make
-        // it more clear at a glance.
-        if (!you.runes[rune])
-            const_cast<item_def*>(entry->item)->sub_type = NUM_RUNE_TYPES;
     }
     else if (entry->item->is_type(OBJ_ORBS, ORB_ZOT))
     {
@@ -2749,7 +2713,7 @@ void display_runes()
                 item_def item;
                 item.base_type = OBJ_RUNES;
                 item.sub_type = rune;
-                item.quantity = 1;
+                item.quantity = you.runes[rune] ? 1 : 0;
                 item_colour(item);
                 items.push_back(item);
             }
@@ -2776,7 +2740,7 @@ void display_runes()
     item_def item;
     item.base_type = OBJ_ORBS;
     item.sub_type = ORB_ZOT;
-    item.quantity = 1;
+    item.quantity = player_has_orb() ? 1 : 0;
     items.push_back(item);
 
     // We've sorted this vector already, so disable menu sorting. Maybe we
@@ -3360,6 +3324,9 @@ bool is_dangerous_item(const item_def &item, bool temp)
         switch (item.sub_type)
         {
         case POT_MUTATION:
+            if (have_passive(passive_t::cleanse_mut_potions))
+                return false;
+            // intentional fallthrough
         case POT_LIGNIFY:
             return true;
         default:
@@ -3417,10 +3384,7 @@ bool is_useless_item(const item_def &item, bool temp)
             return true;
         }
 
-        if (!item_type_known(item))
-            return false;
-
-        if (you.undead_or_demonic() && is_holy_item(item))
+        if (you.undead_or_demonic() && is_holy_item(item, false))
         {
             if (!temp && you.form == transformation::lich
                 && you.species != SP_DEMONSPAWN)
@@ -3461,8 +3425,25 @@ bool is_useless_item(const item_def &item, bool temp)
         return false;
 
     case OBJ_ARMOUR:
-        return !can_wear_armour(item, false, true)
-                || (is_shield(item) && you.get_mutation_level(MUT_MISSING_HAND));
+        if (!can_wear_armour(item, false, true))
+            return true;
+
+        if (is_shield(item) && you.get_mutation_level(MUT_MISSING_HAND))
+            return true;
+
+        if (is_artefact(item))
+            return false;
+
+        if (item.sub_type == ARM_SCARF
+            && item_type_known(item)
+            && (get_armour_ego_type(item) == SPARM_SPIRIT_SHIELD
+                && you.spirit_shield(false, false)
+                || get_armour_ego_type(item) == SPARM_CLOUD_IMMUNE
+                   && have_passive(passive_t::cloud_immunity)))
+        {
+            return true;
+        }
+        return false;
 
     case OBJ_SCROLLS:
         if (temp && silenced(you.pos()))
@@ -3496,8 +3477,6 @@ bool is_useless_item(const item_def &item, bool temp)
             return you.species == SP_FELID;
         case SCR_SUMMONING:
             return you.get_mutation_level(MUT_NO_LOVE) > 0;
-        case SCR_RECHARGING:
-            return you.get_mutation_level(MUT_NO_ARTIFICE) > 0;
         case SCR_FOG:
             return temp && (env.level_state & LSTATE_STILL_WINDS);
         default:
@@ -3511,9 +3490,10 @@ bool is_useless_item(const item_def &item, bool temp)
         if (you.magic_points < wand_mp_cost() && temp)
             return true;
 
+#if TAG_MAJOR_VERSION == 34
         if (is_known_empty_wand(item))
             return true;
-
+#endif
         if (!item_type_known(item))
             return false;
 
@@ -3567,7 +3547,7 @@ bool is_useless_item(const item_def &item, bool temp)
 #if TAG_MAJOR_VERSION == 34
         case POT_PORRIDGE:
             return you.species == SP_VAMPIRE
-                    || you.get_mutation_level(MUT_CARNIVOROUS) == 3;
+                    || you.get_mutation_level(MUT_CARNIVOROUS) > 0;
         case POT_BLOOD_COAGULATED:
 #endif
         case POT_BLOOD:
@@ -3614,9 +3594,9 @@ bool is_useless_item(const item_def &item, bool temp)
             return you.res_corr(false, false);
 
         case AMU_THE_GOURMAND:
-            return player_likes_chunks(true) == 3
+            return player_likes_chunks(true)
                    || you.get_mutation_level(MUT_GOURMAND) > 0
-                   || you.get_mutation_level(MUT_HERBIVOROUS) == 3
+                   || you.get_mutation_level(MUT_HERBIVOROUS) > 0
                    || you.undead_state(temp);
 
         case AMU_FAITH:
@@ -3709,7 +3689,7 @@ bool is_useless_item(const item_def &item, bool temp)
                 return false;
         }
 
-        if (is_fruit(item) && you_worship(GOD_FEDHAS))
+        if (you_worship(GOD_FEDHAS) && item.is_type(OBJ_FOOD, FOOD_RATION))
             return false;
 
         return true;
@@ -3837,8 +3817,6 @@ string item_prefix(const item_def &item, bool temp)
         if (is_forbidden_food(item))
             prefixes.push_back("forbidden");
 
-        if (is_mutagenic(item))
-            prefixes.push_back("mutagenic");
         else if (is_noxious(item))
             prefixes.push_back("inedible");
         break;

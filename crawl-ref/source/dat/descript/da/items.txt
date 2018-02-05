@@ -220,10 +220,6 @@ Denne æske indeholder en forkvaklet troldmands magiske eksperimenters bizarre
 rester. Hvis den åbnes, kan den slippe en venlig kimære løs: en mytisk hybrid
 som består af dele fra tre separate væsener.
 %%%%
-bread ration
-
-Et stort, mættende måltid af tørt brød.
-%%%%
 buckler
 
 Et lille stykke træ og metal, som spændes på den ene arm til forsvar. Det er
@@ -433,10 +429,6 @@ lychee
 
 En tropisk frugt.
 %%%%
-meat ration
-
-En mættende ration af tørret og konserveret kød.
-%%%%
 mottled dragon scales
 
 Denne rustning er lavet af skællene fra en spættet drage. Selvom den i
@@ -627,11 +619,6 @@ forvolde yderligere skade, som afhænger af dine færdigheder med vækkelser, n�
 den rammer en fjende. Køller og plejle-færdigheden hjælper med at forbedre din
 grundlæggende effektivitet med våbnet.
 %%%%
-royal jelly
-
-En særligt fed og gylden geléagtig tingest. Hvis du indtager den, giver den,
-udover næring, dig dine tabte evner tilbage.
-%%%%
 rune of zot
 
 En talisman, som lader dig træde ind i Zots domæne.
@@ -753,12 +740,6 @@ scroll of random uselessness
 
 Det er let at glemme denne skriftrulles essentielle ubrugelighed, når det
 lykkes overhovedet at få den til at virke.
-%%%%
-scroll of recharging
-
-Denne skriftrulle genopfylder en valgfri, magisk vånd eller stoks ladninger.
-Når den bruges på en stok, øger den også stokkens kraftlager og den fart, den
-genvinder kraft med.
 %%%%
 scroll of remove curse
 
@@ -973,10 +954,6 @@ wand of cold
 
 En magisk anordning, som kan kaste kolossale kuldekiler.
 %%%%
-wand of confusion
-
-En magisk enhed, som fremkalder forvirring og desorientering i målet.
-%%%%
 wand of digging
 
 En magisk anordning, som graver tunneller gennem uforarbejdet klippe.
@@ -1001,10 +978,6 @@ En magisk anordning, som kaster eksplosive ildkugler.
 wand of invisibility
 
 En magisk anordning, som kan skjule et væsen for andres øjne.
-%%%%
-wand of lightning
-
-En magisk enhed, som kaster kolossale lynkiler.
 %%%%
 wand of magic darts
 

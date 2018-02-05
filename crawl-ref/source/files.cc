@@ -1177,14 +1177,8 @@ static void _make_level(dungeon_feature_type stair_taken,
     _clear_env_map();
     builder(true, stair_type);
 
-    if (!crawl_state.game_is_tutorial()
-        && !Options.seed
-        && !player_in_branch(BRANCH_ABYSS)
-        && (!player_in_branch(BRANCH_DUNGEON) || you.depth > 2)
-        && one_chance_in(3))
-    {
-        load_ghost(true);
-    }
+    if (ghost_demon::ghost_eligible() && one_chance_in(3))
+        load_ghosts(ghost_demon::max_ghosts_per_level(env.absdepth0), true);
     env.turns_on_level = 0;
     // sanctuary
     env.sanctuary_pos  = coord_def(-1, -1);
@@ -1694,11 +1688,9 @@ void save_game(bool leave_game, const char *farewellmsg)
     // so Valgrind doesn't complain.
     _save_game_exit();
 
-    if (Options.restart_after_game && Options.restart_after_save
-        && !crawl_state.seen_hups)
-    {
-        throw game_ended_condition(true);
-    }
+    // TODO: just call game_ended?
+    if (crawl_should_restart(game_exit::save) && !crawl_state.seen_hups)
+        throw game_ended_condition(game_exit::save);
 
     end(0, false, farewellmsg? "%s" : "See you soon, %s!",
         farewellmsg? farewellmsg : you.your_name.c_str());
@@ -1760,13 +1752,72 @@ static string _find_ghost_file()
     return bonefiles[ui_random(bonefiles.size())];
 }
 
+static vector<ghost_demon> _load_ghost_vec(bool creating_level, bool wiz_cmd)
+{
+    vector<ghost_demon> result;
+
+    const string ghost_filename = _find_ghost_file();
+    if (ghost_filename.empty())
+    {
+        if (wiz_cmd && !creating_level)
+            mprf(MSGCH_PROMPT, "No ghost files for this level.");
+        return result; // no such ghost.
+    }
+
+    reader inf(ghost_filename);
+    if (!inf.valid())
+    {
+        if (wiz_cmd && !creating_level)
+            mprf(MSGCH_PROMPT, "Ghost file invalidated before read.");
+        return result;
+    }
+
+    inf.set_safe_read(true); // don't die on 0-byte bones
+    if (_ghost_version_compatible(inf))
+    {
+        try
+        {
+            result = tag_read_ghosts(inf);
+            inf.fail_if_not_eof(ghost_filename);
+        }
+        catch (short_read_exception &short_read)
+        {
+            mprf(MSGCH_ERROR, "Broken bones file: %s",
+                 ghost_filename.c_str());
+        }
+    }
+    inf.close();
+
+    // Remove bones file - ghosts are hardly permanent.
+    if (unlink(ghost_filename.c_str()) != 0)
+    {
+        mprf(MSGCH_ERROR, "Failed to unlink bones file: %s",
+                ghost_filename.c_str());
+    }
+
+    if (!debug_check_ghosts(result))
+    {
+        mprf(MSGCH_DIAGNOSTICS,
+             "Refusing to load buggy ghost from file \"%s\"!",
+             ghost_filename.c_str());
+
+        result.clear();
+        return result;
+    }
+
+    return result;
+
+}
+
 /**
  * Attempt to load one or more ghosts into the level.
  *
+ * @param max_ghosts        A maximum number of ghosts to creat.
+ *                          Set to <= 0 to load as many as possible.
  * @param creating_level    Whether a level is currently being generated.
  * @return                  Whether ghosts were actually generated.
  */
-bool load_ghost(bool creating_level)
+bool load_ghosts(int max_ghosts, bool creating_level)
 {
     const bool wiz_cmd = (crawl_state.prev_cmd == CMD_WIZARD);
 
@@ -1794,84 +1845,40 @@ bool load_ghost(bool creating_level)
         ;
 #endif // BONES_DIAGNOSTICS
 
-    const string ghost_filename = _find_ghost_file();
-    if (ghost_filename.empty())
-    {
-        if (wiz_cmd && !creating_level)
-            mprf(MSGCH_PROMPT, "No ghost files for this level.");
-        return false; // no such ghost.
-    }
-
-    reader inf(ghost_filename);
-    if (!inf.valid())
-    {
-        if (wiz_cmd && !creating_level)
-            mprf(MSGCH_PROMPT, "Ghost file invalidated before read.");
-        return false;
-    }
-
-    inf.set_safe_read(true); // don't die on 0-byte bones
-    if (_ghost_version_compatible(inf))
-    {
-        try
-        {
-            ghosts.clear();
-            tag_read(inf, TAG_GHOST);
-            inf.fail_if_not_eof(ghost_filename);
-        }
-        catch (short_read_exception &short_read)
-        {
-            mprf(MSGCH_ERROR, "Broken bones file: %s",
-                 ghost_filename.c_str());
-        }
-    }
-    inf.close();
-
-    // Remove bones file - ghosts are hardly permanent.
-    unlink(ghost_filename.c_str());
-
-    if (!debug_check_ghosts())
-    {
-        mprf(MSGCH_DIAGNOSTICS,
-             "Refusing to load buggy ghost from file \"%s\"!",
-             ghost_filename.c_str());
-
-        return false;
-    }
+    vector<ghost_demon> loaded_ghosts = _load_ghost_vec(creating_level, wiz_cmd);
 
 #ifdef BONES_DIAGNOSTICS
     if (do_diagnostics)
     {
-        mprf(MSGCH_DIAGNOSTICS, "Loaded ghost file with %u ghost(s)",
-             (unsigned int)ghosts.size());
+        mprf(MSGCH_DIAGNOSTICS, "Loaded ghost file with %u ghost(s), will attempt to place %d of them",
+             (unsigned int)loaded_ghosts.size(), max_ghosts);
     }
-#endif
 
-#ifdef BONES_DIAGNOSTICS
-    unsigned int  unplaced_ghosts = ghosts.size();
     bool          ghost_errors    = false;
 #endif
 
+    max_ghosts = max_ghosts <= 0 ? loaded_ghosts.size()
+                                 : min(max_ghosts, (int) loaded_ghosts.size());
+    int placed_ghosts = 0;
+
     // Translate ghost to monster and place.
-    while (!ghosts.empty())
+    while (!loaded_ghosts.empty() && placed_ghosts < max_ghosts)
     {
         monster * const mons = get_free_monster();
         if (!mons)
             break;
 
         mons->set_new_monster_id();
-        mons->set_ghost(ghosts[0]);
+        mons->set_ghost(loaded_ghosts[0]);
         mons->type = MONS_PLAYER_GHOST;
         mons->ghost_init();
-        mons->bind_melee_flags();
-        if (mons->has_spells())
-            mons->bind_spell_flags();
 
-        ghosts.erase(ghosts.begin());
+        loaded_ghosts.erase(loaded_ghosts.begin());
+        placed_ghosts++;
+
 #ifdef BONES_DIAGNOSTICS
         if (do_diagnostics)
         {
-            unplaced_ghosts--;
             if (!mons->alive())
             {
                 mprf(MSGCH_DIAGNOSTICS, "Placed ghost is not alive.");
@@ -1889,15 +1896,18 @@ bool load_ghost(bool creating_level)
     }
 
 #ifdef BONES_DIAGNOSTICS
-    if (do_diagnostics && unplaced_ghosts > 0)
+    if (do_diagnostics && placed_ghosts < max_ghosts)
     {
         mprf(MSGCH_DIAGNOSTICS, "Unable to place %u ghost(s)",
-             (unsigned int)ghosts.size());
+             max_ghosts - placed_ghosts);
         ghost_errors = true;
     }
     if (ghost_errors)
         more();
 #endif
+    // resave any unused ghosts
+    if (!loaded_ghosts.empty())
+        save_ghosts(loaded_ghosts);
 
     return true;
 }
@@ -2381,7 +2391,7 @@ static FILE* _make_bones_file(string * return_gfilename)
  * @param force   Forces ghost generation even in otherwise-disallowed levels.
  **/
 
-void save_ghost(bool force)
+void save_ghosts(const vector<ghost_demon> &ghosts, bool force)
 {
 #ifdef BONES_DIAGNOSTICS
     const bool do_diagnostics =
@@ -2395,8 +2405,6 @@ void save_ghost(bool force)
         ;
 #endif // BONES_DIAGNOSTICS
 
-    ghosts = ghost_demon::find_ghosts();
-
     if (ghosts.empty())
     {
 #ifdef BONES_DIAGNOSTICS
@@ -2406,13 +2414,8 @@ void save_ghost(bool force)
         return;
     }
 
-    // No ghosts on D:1, D:2, the Temple, or the Abyss.
-    if (!force && (you.depth < 3 && player_in_branch(BRANCH_DUNGEON)
-                   || player_in_branch(BRANCH_TEMPLE)
-                   || player_in_branch(BRANCH_ABYSS)))
-    {
+    if (!force && !ghost_demon::ghost_eligible())
         return;
-    }
 
     if (_list_bones().size() >= static_cast<size_t>(GHOST_LIMIT))
     {
@@ -2438,7 +2441,7 @@ void save_ghost(bool force)
     writer outw(g_file_name, ghost_file);
 
     _write_ghost_version(outw);
-    tag_write(TAG_GHOST, outw);
+    tag_write_ghosts(outw, ghosts);
 
     lk_close(ghost_file, g_file_name);
 

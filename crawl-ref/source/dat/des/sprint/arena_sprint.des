@@ -1005,8 +1005,6 @@ KFEAT:  o = altar_qazlal
 KFEAT:  p = altar_ru
 KFEAT:  q = altar_uskayaw
 KFEAT:  r = altar_wu_jian
-# Disable Wu in the stable version.
-: if crawl.unavailable_god("Wu Jian") then _G.subst("r = .") end
 KITEM:  { = scroll of blinking q:3, scroll of fog q:3 ident:all, \
             potion of heal wounds q:3, potion of haste q:3, \
             wand of iceblast charges:5 ident:all, \
@@ -1031,10 +1029,9 @@ KFEAT:  D = book shop type:Must-Have suffix:Magic greed:7 count:12 use_all ; \
             book of death | book of the sky | book of the warp |\
             book of the earth | book of burglary | book of annihilations |\
             grand grimoire | necronomicon
-KFEAT:  EP = scroll shop greed:10 use_all count:17 ; \
+KFEAT:  EP = scroll shop greed:10 use_all count:14 ; \
             scroll of blinking q:3 | scroll of blinking q:4 | scroll of blinking q:5 |\
             scroll of fog q:3 | scroll of fog q:4 | scroll of fog q:5 |\
-            scroll of recharging q:3 | scroll of recharging q:3 | scroll of recharging q:3 |\
             scroll of silence q:3 | scroll of brand weapon | scroll of vulnerability q:3 |\
             scroll of amnesia q:5 | scroll of remove curse q:15 | scroll of enchant weapon q:8 |\
             scroll of enchant armour q:4 | scroll of enchant armour q:4
@@ -1069,7 +1066,7 @@ KFEAT:  L = armour shop count:17 greed:12 type:Basic suffix:Armour use_all ; \
             mundane not_cursed centaur barding | mundane not_cursed cloak |\
             mundane not_cursed buckler | mundane not_cursed pair of gloves |\
             mundane not_cursed helmet
-KFEAT:  M = food shop count:17 type:Bee suffix:Food greed:4 ; royal jelly q:3
+KFEAT:  M = food shop count:17 type:Delicious suffix:Food greed:4 ; ration q:2
 KFEAT:  N = weapon shop type:Staff suffix:Store count:9 use_all greed:30 ; \
             staff of summoning | staff of wizardry |\
             staff of fire | staff of air | staff of earth | staff of cold |\
@@ -1095,7 +1092,7 @@ KFEAT:  R = general shop type:Premium suffix:Goods use_all count:11 greed:20 ; \
             potion of haste q:5 | potion of haste q:5 |\
             crystal ball of energy
 KFEAT:  J = general shop type:Miscellaneous suffix:Merchandise count:14 greed:15 use_all ; \
-            fruit q:100 | potion of blood q:5 | potion of blood q:5 |\
+            ration q:20 | potion of blood q:5 | potion of blood q:5 |\
             potion of blood q:5 | potion of blood q:5 | ring of poison resistance |\
             ring of protection from fire | ring of protection from cold |\
             ring of protection from magic | amulet of regeneration |\

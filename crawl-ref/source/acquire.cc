@@ -409,25 +409,13 @@ static int _acquirement_food_subtype(bool /*divine*/, int& quantity)
         // class type is set elsewhere
         type_wanted = POT_BLOOD;
     }
-    else if (you_worship(GOD_FEDHAS))
-    {
-        // Fedhas worshippers get fruit to use for growth and evolution
-        type_wanted = FOOD_FRUIT;
-    }
     else
-    {
-        type_wanted = coinflip()
-            ? FOOD_ROYAL_JELLY
-            : you.get_mutation_level(MUT_HERBIVOROUS) ? FOOD_BREAD_RATION
-                                                      : FOOD_MEAT_RATION;
-    }
+        type_wanted = FOOD_RATION;
 
     quantity = 3 + random2(5);
 
     // giving more of the lower food value items
-    if (type_wanted == FOOD_FRUIT)
-        quantity = 8 + random2avg(15, 2);
-    else if (type_wanted == FOOD_ROYAL_JELLY || type_wanted == FOOD_CHUNK)
+    if (type_wanted == FOOD_CHUNK)
         quantity += 2 + random2avg(10, 2);
     else if (type_wanted == POT_BLOOD)
         quantity = 8 + random2(5);
@@ -705,18 +693,16 @@ static int _acquirement_wand_subtype(bool /*divine*/, int & /*quantity*/)
 {
     // basic total: 120
     vector<pair<wand_type, int>> weights = {
-        { WAND_SCATTERSHOT,     20 },
-        { WAND_CLOUDS,          20 },
-        { WAND_LIGHTNING,       16 },
-        { WAND_ACID,            16 },
-        { WAND_ICEBLAST,        16 },
+        { WAND_SCATTERSHOT,     25 },
+        { WAND_CLOUDS,          25 },
+        { WAND_ACID,            18 },
+        { WAND_ICEBLAST,        18 },
+        { WAND_ENSLAVEMENT,     you.get_mutation_level(MUT_NO_LOVE) ? 0 : 8 },
+        { WAND_PARALYSIS,       8 },
         { WAND_DISINTEGRATION,  5 },
-        { WAND_DIGGING,         5 },
         { WAND_POLYMORPH,       5 },
-        { WAND_ENSLAVEMENT,     you.get_mutation_level(MUT_NO_LOVE) ? 0 : 5 },
-        { WAND_PARALYSIS,       5 },
-        { WAND_CONFUSION,       3 },
-        { WAND_RANDOM_EFFECTS,  3 },
+        { WAND_DIGGING,         5 },
+        { WAND_RANDOM_EFFECTS,  2 },
         { WAND_FLAME,           1 },
     };
 
@@ -1198,6 +1184,7 @@ static string _why_reject(const item_def &item, int agent)
         return "Destroying sif-gifted rarebook!";
     }
 
+#if TAG_MAJOR_VERSION == 34
     // The crystal ball case should be handled elsewhere, but just in
     // case, it's also handled here.
     if (agent == GOD_PAKELLAS)
@@ -1208,6 +1195,7 @@ static string _why_reject(const item_def &item, int agent)
             return "Destroying CBoE that Pakellas hates!";
         }
     }
+#endif
 
     return ""; // all OK
 }
@@ -1495,14 +1483,13 @@ bool acquirement(object_class_type class_wanted, int agent,
         { OBJ_JEWELLERY,  "Jewellery" },
         { OBJ_BOOKS,      "Book" },
         { OBJ_STAVES,     "Staff " },
-        { OBJ_MISCELLANY, "Evocables" },
+        { OBJ_MISCELLANY, "Evocable" },
         { OBJ_FOOD,       0 }, // amended below
         { OBJ_GOLD,       "Gold" },
     };
     ASSERT(acq_classes[6].type == OBJ_FOOD);
-    acq_classes[6].name = you_worship(GOD_FEDHAS) ? "Fruit":
-                          you.species == SP_VAMPIRE  ? "Blood":
-                                                       "Food";
+    acq_classes[6].name = you.species == SP_VAMPIRE ? "Blood":
+                                                      "Food";
 
     int thing_created = NON_ITEM;
 

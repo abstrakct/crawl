@@ -198,6 +198,12 @@ static bool _try_make_item_unrand(item_def& item, int force_type, int agent)
     return false;
 }
 
+static bool _weapon_disallows_randart(int sub_type)
+{
+    // Clubs and blowguns are never randarts.
+    return sub_type == WPN_CLUB || sub_type == WPN_BLOWGUN;
+}
+
 // Return whether we made an artefact.
 static bool _try_make_weapon_artefact(item_def& item, int force_type,
                                       int item_level, bool force_randart,
@@ -216,8 +222,7 @@ static bool _try_make_weapon_artefact(item_def& item, int force_type,
                 return true;
         }
 
-        // Clubs and blowguns are never randarts.
-        if (item.sub_type == WPN_CLUB || item.sub_type == WPN_BLOWGUN)
+        if (_weapon_disallows_randart(item.sub_type))
             return false;
 
         // Mean enchantment +6.
@@ -394,6 +399,10 @@ static void _generate_weapon_item(item_def& item, bool allow_uniques,
         item.sub_type = force_type;
     else
         _roll_weapon_type(item, item_level);
+
+    // Fall back to an ordinary item if randarts not allowed for this type.
+    if (item_level == ISPEC_RANDART && _weapon_disallows_randart(item.sub_type))
+        item_level = ISPEC_GOOD_ITEM;
 
     // Forced randart.
     if (item_level == ISPEC_RANDART)
@@ -707,6 +716,12 @@ static void _generate_missile_item(item_def& item, int force_type,
         item.quantity = 1 + random2(7) + random2(10) + random2(10) + random2(12);
 }
 
+static bool _armour_disallows_randart(int sub_type)
+{
+    // Scarves are never randarts.
+    return sub_type == ARM_SCARF;
+}
+
 static bool _try_make_armour_artefact(item_def& item, int force_type,
                                       int item_level, bool force_randart,
                                       int agent)
@@ -723,6 +738,9 @@ static bool _try_make_armour_artefact(item_def& item, int force_type,
             if (_try_make_item_unrand(item, force_type, agent))
                 return true;
         }
+
+        if (_armour_disallows_randart(item.sub_type))
+            return false;
 
         // The rest are normal randarts.
 
@@ -1115,6 +1133,11 @@ static void _generate_armour_item(item_def& item, bool allow_uniques,
         }
     }
 
+
+    // Fall back to an ordinary item if artefacts not allowed for this type.
+    if (item_level == ISPEC_RANDART && _armour_disallows_randart(item.sub_type))
+        item_level = ISPEC_GOOD_ITEM;
+
     // Forced randart.
     if (item_level == ISPEC_RANDART)
     {
@@ -1164,7 +1187,7 @@ static void _generate_armour_item(item_def& item, bool allow_uniques,
         if (item_level == ISPEC_BAD)
             do_curse_item(item);
     }
-    // Non-randart scarves always get an ego
+    // Scarves always get an ego.
     else if (item.sub_type == ARM_SCARF)
     {
         set_item_ego_type(item, OBJ_ARMOUR,
@@ -1249,20 +1272,18 @@ static monster_type _choose_random_monster_corpse()
  */
 static int _random_wand_subtype()
 {
-    // total weight 80 [arbitrary]
-    return random_choose_weighted(9, WAND_FLAME,
-                                  9, WAND_LIGHTNING,
-                                  9, WAND_ICEBLAST,
+    // total weight 75 [arbitrary]
+    return random_choose_weighted(10, WAND_FLAME,
+                                  10, WAND_ICEBLAST,
                                   8, WAND_RANDOM_EFFECTS,
-                                  8, WAND_CONFUSION,
                                   8, WAND_POLYMORPH,
-                                  6, WAND_PARALYSIS,
-                                  6, WAND_ACID,
-                                  5, WAND_DISINTEGRATION,
-                                  5, WAND_DIGGING,
-                                  3, WAND_ENSLAVEMENT,
-                                  2, WAND_CLOUDS,
-                                  2, WAND_SCATTERSHOT);
+                                  8, WAND_PARALYSIS,
+                                  8, WAND_ACID,
+                                  6, WAND_DISINTEGRATION,
+                                  6, WAND_DIGGING,
+                                  5, WAND_ENSLAVEMENT,
+                                  3, WAND_CLOUDS,
+                                  3, WAND_SCATTERSHOT);
 }
 
 /**
@@ -1278,9 +1299,7 @@ bool is_high_tier_wand(int type)
     switch (type)
     {
     case WAND_ENSLAVEMENT:
-    case WAND_CONFUSION:
     case WAND_PARALYSIS:
-    case WAND_LIGHTNING:
     case WAND_ACID:
     case WAND_ICEBLAST:
     case WAND_DISINTEGRATION:
@@ -1294,22 +1313,15 @@ bool is_high_tier_wand(int type)
 
 static void _generate_wand_item(item_def& item, int force_type, int item_level)
 {
-    // Determine sub_type.
     if (force_type != OBJ_RANDOM)
         item.sub_type = force_type;
     else
         item.sub_type = _random_wand_subtype();
 
-    // Generate charges randomly...
-    item.plus = random2avg(wand_max_charges(item), 3);
+    // Add wand charges and ensure we have at least one charge.
+    item.charges = 1 + random2avg(wand_charge_value(item.sub_type), 3);
 
-    // ...but 0 charges is silly
-    if (item.charges == 0)
-        item.charges++;
-
-    item.used_count = 0;
-
-    // don't let monsters pickup early high-tier wands
+    // Don't let monsters pickup early high-tier wands
     if (item_level < 2 && is_high_tier_wand(item.sub_type))
         item.flags |= ISFLAG_NO_PICKUP;
 }
@@ -1318,12 +1330,7 @@ static void _generate_food_item(item_def& item, int force_quant, int force_type)
 {
     // Determine sub_type:
     if (force_type == OBJ_RANDOM)
-    {
-        item.sub_type = random_choose_weighted(30, FOOD_MEAT_RATION,
-                                               30, FOOD_BREAD_RATION,
-                                               25, FOOD_ROYAL_JELLY,
-                                               15, FOOD_FRUIT);
-    }
+        item.sub_type = FOOD_RATION;
     else
         item.sub_type = force_type;
 
@@ -1338,22 +1345,7 @@ static void _generate_food_item(item_def& item, int force_quant, int force_type)
     }
 
     // Determine quantity.
-    if (force_quant > 1)
-        item.quantity = force_quant;
-    else
-    {
-        item.quantity = 1;
-
-        if (item.sub_type != FOOD_MEAT_RATION
-            && item.sub_type != FOOD_BREAD_RATION)
-        {
-            if (one_chance_in(80))
-                item.quantity += random2(3);
-
-            if (is_fruit(item))
-                item.quantity += random2(4);
-        }
-    }
+    item.quantity = force_quant > 1 ? force_quant : 1;
 }
 
 static void _generate_potion_item(item_def& item, int force_type,
@@ -1424,9 +1416,9 @@ static void _generate_scroll_item(item_def& item, int force_type,
         // _is_boring_item). Otherwise just weighted-choose a scroll.
         do
         {
-            // total weight:    789  if depth_mod < 4
-            //                  908  otherwise
-            //                 -112  in sprint
+            // total weight:    709  if depth_mod < 4
+            //                  828  otherwise
+            //                 -122  in sprint
             item.sub_type = random_choose_weighted(
                 200, SCR_IDENTIFY,
                 112, SCR_REMOVE_CURSE,
@@ -1436,7 +1428,6 @@ static void _generate_scroll_item(item_def& item, int force_type,
                  45, SCR_AMNESIA,
                  40, SCR_ENCHANT_ARMOUR,
                  40, SCR_ENCHANT_WEAPON,
-                 40, SCR_RECHARGING,
                  40, SCR_MAGIC_MAPPING,
                  32, SCR_FEAR,
                  32, SCR_FOG,

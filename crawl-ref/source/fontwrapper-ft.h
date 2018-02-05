@@ -9,6 +9,9 @@
 
 #include "tilefont.h"
 
+struct HiDPIState;
+extern HiDPIState display_density;
+
 // TODO enne - Fonts could be made better by:
 //
 // * handling kerning
@@ -24,8 +27,8 @@ public:
     virtual ~FTFontWrapper();
 
     // font loading
-    virtual bool load_font(const char *font_name, unsigned int font_size,
-                           bool outline, int scale_num, int scale_den) override;
+    virtual bool load_font(const char *font_name, unsigned int font_size) override;
+    virtual bool configure_font() override;
 
     // render just text
     virtual void render_textblock(unsigned int x, unsigned int y,
@@ -54,13 +57,15 @@ public:
     virtual void store(FontBuffer &buf, float &x, float &y, char32_t c,
                        const VColour &fg_col, const VColour &bg_col) override;
 
-    virtual unsigned int char_width() const override;
-    virtual unsigned int char_height() const override;
+    virtual unsigned int char_width(bool logical=true) const override;
+    virtual unsigned int char_height(bool logical=true) const override;
+    virtual unsigned int max_width(int length, bool logical=true) const override;
+    virtual unsigned int max_height(int length, bool logical=true) const override;
 
-    virtual unsigned int string_width(const char *text) override;
-    virtual unsigned int string_width(const formatted_string &str) override;
-    virtual unsigned int string_height(const char *text) const override;
-    virtual unsigned int string_height(const formatted_string &str) const override;
+    virtual unsigned int string_width(const char *text, bool logical=true) override;
+    virtual unsigned int string_width(const formatted_string &str, bool logical=true) override;
+    virtual unsigned int string_height(const char *text, bool logical=true) const override;
+    virtual unsigned int string_height(const formatted_string &str, bool logical=true) const override;
 
     // Try to split this string to fit in w x h pixel area.
     virtual formatted_string split(const formatted_string &str,
@@ -79,6 +84,7 @@ protected:
 
     int find_index_before_width(const char *str, int max_width);
 
+    unsigned int map_unicode(char *ch);
     unsigned int map_unicode(char32_t uchar, bool update);
     unsigned int map_unicode(char32_t uchar);
     void load_glyph(unsigned int c, char32_t uchar);
@@ -103,20 +109,27 @@ protected:
 
         // does glyph have any pixels?
         bool renderable;
+        bool valid;
+    };
+    vector<GlyphInfo> m_glyphs;
+    GlyphInfo& get_glyph_info(char32_t ch);
 
+    struct FontAtlasEntry
+    {
         // index of prev/next glyphs in LRU
         unsigned int prev; unsigned int next;
         // charcode of glyph
         char32_t uchar;
     };
-    GlyphInfo *m_glyphs;
+    FontAtlasEntry *m_atlas;
+
     map<char32_t, unsigned int> m_glyphmap;
     // index of least recently used glyph
-    char32_t m_glyphs_lru;
+    char32_t m_atlas_lru;
     // index of most recently used glyph
-    char32_t m_glyphs_mru;
+    char32_t m_atlas_mru;
     // index of last populated glyph until m_glyphs[] is full
-    char32_t m_glyphs_top;
+    char32_t m_atlas_top;
 
     // count of glyph loads in the current text block
     int n_subst;
@@ -140,12 +153,10 @@ protected:
     GenericTexture m_tex;
     GLShapeBuffer *m_buf;
 
+    FT_Byte *ttf;
     FT_Face face;
-    bool    outl;
     unsigned char *pixels;
-
-    int scale_num;
-    int scale_den;
+    unsigned int fsize;
 };
 
 #endif // USE_FT

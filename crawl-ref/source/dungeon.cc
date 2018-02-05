@@ -2632,9 +2632,9 @@ static bool _pan_level()
     }
 
     // Unique pan lords become more common as you travel through pandemonium.
-    // On average it takes 27 levels to see all four, and you're likely to see
-    // your first one after about 10 levels.
-    if (x_chance_in_y(1 + place_info.levels_seen, 65 + place_info.levels_seen * 2)
+    // On average it takes about 14 levels to see all four, and on average
+    // about 5 levels to see your first.
+    if (x_chance_in_y(1 + place_info.levels_seen, 20 + place_info.levels_seen)
         && !all_demons_generated)
     {
         do
@@ -5320,10 +5320,16 @@ bool join_the_dots(const coord_def &from, const coord_def &to,
 
     for (auto c : path)
     {
-        if (!map_masked(c, mapmask) && overwriteable(grd(c)))
+        auto feat = grd(c);
+        if (!map_masked(c, mapmask) && overwriteable(feat))
         {
             grd(c) = DNGN_FLOOR;
             dgn_height_set_at(c);
+        }
+        else
+        {
+            dprf(DIAG_DNGN, "Failed to path through %s at (%d;%d) for connectivity",
+                 get_feature_def(feat).name, c.x, c.y);
         }
     }
 
@@ -5804,10 +5810,7 @@ static bool _spotty_seed_ok(const coord_def& p)
 static bool _feat_is_wall_floor_liquid(dungeon_feature_type feat)
 {
     return feat_is_water(feat)
-#if TAG_MAJOR_VERSION == 34
-           || player_in_branch(BRANCH_FOREST) && feat == DNGN_TREE
-#endif
-           || player_in_branch(BRANCH_SWAMP) && feat == DNGN_TREE
+           || feat == DNGN_TREE
            || feat_is_lava(feat)
            || feat_is_wall(feat)
            || feat == DNGN_FLOOR;

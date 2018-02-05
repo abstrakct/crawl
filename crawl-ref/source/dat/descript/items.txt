@@ -290,10 +290,6 @@ There are six known traits:
 
 As far as anyone knows, all beasts have exactly two of these traits.
 %%%%
-bread ration
-
-A filling meal of stale, but hearty, bread.
-%%%%
 broad axe
 
 An axe with langets, spikes, a lengthed haft and a single-bladed crescent head.
@@ -434,10 +430,6 @@ while rendering its wearer more susceptible to cold.
 flail
 
 A mace with a short chain connecting the head to the haft.
-%%%%
-fruit
-
-A delicious edible flower ovary.
 %%%%
 fustibalus
 
@@ -595,17 +587,9 @@ manual
 A valuable book which allows one to practise a certain skill more efficiently
 when carried.
 %%%%
-meat ration
-
-A filling ration of dried and preserved meats.
-%%%%
 morningstar
 
 A mace with a head covered in short spikes.
-%%%%
-mutagenic chunk of flesh
-
-<chunk of flesh>
 %%%%
 naga barding
 
@@ -771,6 +755,11 @@ rapier
 
 A slender, sharply pointed sword, with an uncommonly elegant design.
 %%%%
+ration
+
+Something for everyone: A filling meal of preserved meats, fruits, cheese,
+and stale, but hearty, bread.
+%%%%
 ring mail
 
 A light leather suit reinforced with a covering of metal rings. It is
@@ -879,10 +868,6 @@ A large, loose-fitting, wide-sleeved outer garment made of light cloth. It
 offers little protection against physical harm, but does not hinder evasion or
 spellcasting.
 %%%%
-royal jelly
-
-A particularly rich and golden gelatinous thing.
-%%%%
 rune of zot
 
 A talisman which allows entry into the Realm of Zot.
@@ -988,10 +973,6 @@ A prank scroll that creates a loud noise when read.
 scroll of random uselessness
 
 A scroll with no apparent practical use.
-%%%%
-scroll of recharging
-
-A scroll that restores the charges of any magical wand chosen by its reader.
 %%%%
 scroll of remove curse
 
@@ -1192,10 +1173,6 @@ increases this gives way to roaring flames, freezing vapours, and poisonous
 gas. At the highest tiers of power storm clouds, acidic fog and clouds of
 negative energy become available.
 %%%%
-wand of confusion
-
-A magical device which induces confusion and bewilderment in a target creature.
-%%%%
 wand of digging
 
 A magical device which drills tunnels through unworked rock.
@@ -1217,12 +1194,6 @@ wand of iceblast
 
 A magical device which throws exploding shards of ice, partially harming even
 creatures resistant to cold.
-%%%%
-wand of lightning
-
-A magical device which throws great bolts of lightning. They inflict less
-damage than other similar bolts, but their damage partially bypasses armour
-and they can be bounced off walls to hit targets twice.
 %%%%
 wand of paralysis
 

@@ -147,10 +147,10 @@ static void _initialize()
 
 #ifdef USE_TILE_LOCAL
     if (!crawl_state.tiles_disabled
-        && !Options.tile_skip_title
         && crawl_state.title_screen)
     {
-        tiles.update_title_msg("Loading complete, press any key to start.");
+        if (!Options.tile_skip_title)
+            tiles.update_title_msg("Loading complete, press any key to start.");
         tiles.hide_title();
     }
 #endif
@@ -249,7 +249,7 @@ static void _post_init(bool newc)
 
     crawl_state.need_save = true;
     crawl_state.last_type = crawl_state.type;
-    crawl_state.last_game_won = false;
+    crawl_state.marked_as_won = false;
 
     destroy_abyss();
 
@@ -954,11 +954,27 @@ static void _choose_arena_teams(newgame_def& choice,
 
     char buf[80];
     if (cancellable_get_line(buf, sizeof(buf)))
-        game_ended();
+        game_ended(game_exit::abort);
     choice.arena_teams = buf;
     if (choice.arena_teams.empty())
         choice.arena_teams = defaults.arena_teams;
 }
+
+#ifndef DGAMELAUNCH
+static bool _exit_type_allows_menu_bypass(game_exit exit)
+{
+    // restart with last game saved, crashed, or aborted: don't bypass
+    // restart with last game died, won, or left: bypass if other settings allow
+    // it. If quit, bypass only if the relevant option is set.
+    // unknown corresponds to no previous game in this crawl
+    // session.
+    return exit == game_exit::death
+        || exit == game_exit::win
+        || exit == game_exit::unknown
+        || exit == game_exit::leave
+        || (exit == game_exit::quit && Options.newgame_after_quit);
+}
+#endif
 
 bool startup_step()
 {
@@ -984,10 +1000,24 @@ bool startup_step()
     if (!SysEnv.crawl_name.empty())
         choice.name = SysEnv.crawl_name;
 
+
 #ifndef DGAMELAUNCH
+
+    // startup
+
+    // These conditions are ignored for tutorial or sprint, which always trigger
+    // the relevant submenu. Arena never triggers a menu.
+    const bool can_bypass_menu =
+            _exit_type_allows_menu_bypass(crawl_state.last_game_exit)
+         && crawl_state.last_type != GAME_TYPE_ARENA
+         && Options.name_bypasses_menu
+         && is_good_name(choice.name, false, false);
+
     if (crawl_state.last_type == GAME_TYPE_TUTORIAL
         || crawl_state.last_type == GAME_TYPE_SPRINT)
     {
+        // this counts as showing the startup menu
+        crawl_state.bypassed_startup_menu = false;
         choice.type = crawl_state.last_type;
         crawl_state.type = crawl_state.last_type;
         crawl_state.last_type = GAME_TYPE_UNSPECIFIED;
@@ -995,17 +1025,16 @@ bool startup_step()
         if (choice.type == GAME_TYPE_TUTORIAL)
             choose_tutorial_character(choice);
     }
-    // We could also check whether game type has been set here,
-    // but it's probably not necessary to choose non-default game
-    // types while specifying a name externally.
-    else if (!is_good_name(choice.name, false, false)
-        && choice.type != GAME_TYPE_ARENA)
+    else if (!can_bypass_menu && choice.type != GAME_TYPE_ARENA)
     {
+        crawl_state.bypassed_startup_menu = false;
         _show_startup_menu(choice, defaults);
         // [ds] Must set game type here, or we won't be able to load
         // Sprint saves.
         crawl_state.type = choice.type;
     }
+    else
+        crawl_state.bypassed_startup_menu = true;
 #endif
 
     // TODO: integrate arena better with
@@ -1014,8 +1043,8 @@ bool startup_step()
     {
         _choose_arena_teams(choice, defaults);
         write_newgame_options_file(choice);
-        run_arena(choice.arena_teams);
-        end(0, false);
+        crawl_state.last_type = GAME_TYPE_ARENA;
+        run_arena(choice.arena_teams); // this is NORETURN
     }
 
     bool newchar = false;

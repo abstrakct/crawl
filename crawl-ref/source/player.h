@@ -554,7 +554,6 @@ public:
         override;
 
     int base_ac_from(const item_def &armour, int scale = 1) const;
-    void maybe_degrade_bone_armour(int trials);
 
     int inaccuracy() const override;
 
@@ -595,7 +594,9 @@ public:
     int         damage_type(int which_attack = -1) override;
     random_var  attack_delay(const item_def *projectile = nullptr,
                              bool rescale = true) const override;
-    int         constriction_damage() const override;
+    int         constriction_damage(bool direct) const override;
+    bool        constriction_does_damage(bool /* direct */) const override
+                    { return true; };
 
     int       has_claws(bool allow_tran = true) const override;
     bool      has_usable_claws(bool allow_tran = true) const;
@@ -969,7 +970,7 @@ int player_res_acid(bool calc_unid = true, bool items = true);
 bool player_res_torment(bool random = true);
 bool player_kiku_res_torment();
 
-int player_likes_chunks(bool permanently = false);
+bool player_likes_chunks(bool permanently = false);
 bool player_likes_water(bool permanently = false);
 
 int player_res_electricity(bool calc_unid = true, bool temp = true,

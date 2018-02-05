@@ -48,43 +48,6 @@
 #include "viewchar.h"
 #include "view.h"
 
-#if TAG_MAJOR_VERSION == 34
-// This spell has two main advantages over Fireball:
-//
-// (1) The release is instantaneous, so monsters will not
-//     get an action before the player... this allows the
-//     player to hit monsters with a double fireball (this
-//     is why we only allow one delayed fireball at a time,
-//     if you want to allow for more, then the release should
-//     take at least some amount of time).
-//
-//     The casting of this spell still costs a turn. So
-//     casting Delayed Fireball and immediately releasing
-//     the fireball is only slightly different from casting
-//     a regular Fireball (monsters act in the middle instead
-//     of at the end). This is why we allow for the spell
-//     level discount so that Fireball is free with this spell
-//     (so that it only costs 7 levels instead of 12 to have
-//     both).
-//
-// (2) When the fireball is released, it is guaranteed to
-//     go off... the spell only fails at this point. This can
-//     be a large advantage for characters who have difficulty
-//     casting Fireball in their standard equipment. However,
-//     the power level for the actual fireball is determined at
-//     release, so if you do swap out your enhancers you'll
-//     get a less powerful ball when it's released. - bwr
-//
-spret_type cast_delayed_fireball(bool fail)
-{
-    fail_check();
-    // Okay, this message is weak but functional. - bwr
-    mpr("You feel magically charged.");
-    you.attribute[ATTR_DELAYED_FIREBALL] = 1;
-    return SPRET_SUCCESS;
-}
-#endif
-
 void setup_fire_storm(const actor *source, int pow, bolt &beam)
 {
     zappy(ZAP_FIRE_STORM, pow, source->is_monster(), beam);
@@ -1053,30 +1016,15 @@ static int _shatter_mon_dice(const monster *mon)
     case MONS_ROXANNE:
         return 6;
 
-    // 1/3 damage to liquids.
-    case MONS_WATER_ELEMENTAL:
-        return 1;
-
     default:
-        const bool petrifying = mon->petrifying();
-        const bool petrified = mon->petrified();
-
-        // Extra damage to petrifying/petrified things.
-        // Undo the damage reduction as well; base damage is 4 : 6.
-        if (petrifying || petrified)
-            return petrifying ? 6 : 12;
-        // No damage to insubstantials.
-        else if (mon->is_insubstantial())
-            return 0;
-        // 1/3 damage to fliers and slimes.
+        if (mon->is_insubstantial())
+            return 1;
+        if (mon->petrifying() || mon->petrified())
+            return 6; // reduced later by petrification's damage reduction
+        else if (mon->is_skeletal() || mon->is_icy())
+            return 6;
         else if (mon->airborne() || mons_is_slime(*mon))
             return 1;
-        // 3/2 damage to ice.
-        else if (mon->is_icy())
-            return random_range(4, 5);
-        // Double damage to bone.
-        else if (mon->is_skeletal())
-            return 6;
         // Normal damage to everything else.
         else
             return 3;
@@ -1140,30 +1088,24 @@ static int _shatter_walls(coord_def where, int pow, actor *agent)
         chance = 100;
         break;
 
-    case DNGN_METAL_WALL:
-        chance = pow / 10;
-        break;
-
     case DNGN_ORCISH_IDOL:
     case DNGN_GRANITE_STATUE:
-        chance = 50;
+        chance = 100;
+        break;
+
+    case DNGN_METAL_WALL:
+        chance = 15;
         break;
 
     case DNGN_CLEAR_STONE_WALL:
     case DNGN_STONE_WALL:
-        chance = pow / 6;
+        chance = 25;
         break;
 
     case DNGN_CLEAR_ROCK_WALL:
     case DNGN_ROCK_WALL:
     case DNGN_SLIMY_WALL:
-        chance = pow / 4;
-        break;
-
     case DNGN_CRYSTAL_WALL:
-        chance = 50;
-        break;
-
     case DNGN_TREE:
         chance = 33;
         break;
@@ -1190,19 +1132,15 @@ static int _shatter_walls(coord_def where, int pow, actor *agent)
 static int _shatter_player_dice()
 {
     if (you.is_insubstantial())
-        return 0;
-    else if (you.petrified())
-        return 12; // reduced later
-    else if (you.petrifying())
-        return 6;  // reduced later
-    // Same order as for monsters -- petrified flyers get hit hard, skeletal
-    // flyers get no extra damage.
+        return 1;
+    if (you.petrified() || you.petrifying())
+        return 6; // reduced later by petrification's damage reduction
+    else if (you.form == transformation::statue
+             || you.form == transformation::ice_beast
+             || you.species == SP_GARGOYLE)
+        return 6;
     else if (you.airborne())
         return 1;
-    else if (you.form == transformation::statue || you.species == SP_GARGOYLE)
-        return 6;
-    else if (you.form == transformation::ice_beast)
-        return random_range(4, 5);
     else
         return 3;
 }
@@ -2082,8 +2020,7 @@ spret_type cast_discharge(int pow, bool fail)
 }
 
 bool setup_fragmentation_beam(bolt &beam, int pow, const actor *caster,
-                              const coord_def target, bool allow_random,
-                              bool get_max_distance, bool quiet,
+                              const coord_def target, bool quiet,
                               const char **what, bool &should_destroy_wall,
                               bool &hole)
 {
@@ -2100,7 +2037,7 @@ bool setup_fragmentation_beam(bolt &beam, int pow, const actor *caster,
 
     beam.target = target;
 
-    // Number of dice vary... 3 is easy/common, but it can get as high as 6.
+    // Number of dice vary from 2-4.
     beam.damage = dice_def(0, 5 + pow / 5);
 
     monster* mon = monster_at(target);
@@ -2138,9 +2075,9 @@ bool setup_fragmentation_beam(bolt &beam, int pow, const actor *caster,
         switch (mon->type)
         {
         case MONS_TOENAIL_GOLEM:
-            beam.damage.num = 3;
             beam.name       = "blast of toenail fragments";
             beam.colour     = RED;
+            beam.damage.num = 3;
             break;
 
         case MONS_IRON_ELEMENTAL:
@@ -2260,30 +2197,23 @@ bool setup_fragmentation_beam(bolt &beam, int pow, const actor *caster,
         if (what && *what == nullptr)
             *what = "wall";
         // fall-through
-    case DNGN_GRANITE_STATUE:   // normal rock -- big explosion
+    case DNGN_GRANITE_STATUE:
         if (what && *what == nullptr)
             *what = "statue";
 
         beam.name       = "blast of rock fragments";
         beam.damage.num = 3;
 
-        if ((grid == DNGN_ORCISH_IDOL
-             || grid == DNGN_GRANITE_STATUE
-             || grid == DNGN_GRATE
-             || pow >= 35 && grid == DNGN_ROCK_WALL
-                 && (allow_random && one_chance_in(3)
-                     || !allow_random && get_max_distance)
-             || pow >= 35 && grid == DNGN_CLEAR_ROCK_WALL
-                 && (allow_random && one_chance_in(3)
-                     || !allow_random && get_max_distance)
-             || pow >= 50 && grid == DNGN_STONE_WALL
-                 && (allow_random && one_chance_in(10)
-                     || !allow_random && get_max_distance)
-             || pow >= 50 && grid == DNGN_CLEAR_STONE_WALL
-                 && (allow_random && one_chance_in(10)
-                     || !allow_random && get_max_distance)))
+        if (grid == DNGN_ORCISH_IDOL
+            || grid == DNGN_GRANITE_STATUE
+            || pow >= 35 && (grid == DNGN_ROCK_WALL
+                             || grid == DNGN_SLIMY_WALL
+                             || grid == DNGN_CLEAR_ROCK_WALL)
+               && one_chance_in(3)
+            || pow >= 50 && (grid == DNGN_STONE_WALL
+                             || grid == DNGN_CLEAR_STONE_WALL)
+               && one_chance_in(10))
         {
-            beam.ex_size = 2;
             should_destroy_wall = true;
         }
         break;
@@ -2299,12 +2229,10 @@ bool setup_fragmentation_beam(bolt &beam, int pow, const actor *caster,
         beam.name       = "blast of metal fragments";
         beam.damage.num = 4;
 
-        if (pow >= 75 && (allow_random && x_chance_in_y(pow / 5, 500)
-                          || !allow_random && get_max_distance)
+        if (pow >= 75 && one_chance_in(20)
             || grid == DNGN_GRATE)
         {
-            beam.damage.num += 2;
-            should_destroy_wall     = true;
+            should_destroy_wall = true;
         }
         break;
 
@@ -2316,16 +2244,11 @@ bool setup_fragmentation_beam(bolt &beam, int pow, const actor *caster,
         beam.name       = "blast of crystal shards";
         beam.damage.num = 4;
 
-        if (allow_random && coinflip()
-            || !allow_random && get_max_distance)
-        {
-            beam.ex_size = 3;
+        if (one_chance_in(3))
             should_destroy_wall = true;
-        }
         break;
 
     // Stone doors and arches
-
     case DNGN_OPEN_DOOR:
     case DNGN_CLOSED_DOOR:
     case DNGN_RUNED_DOOR:
@@ -2336,7 +2259,7 @@ bool setup_fragmentation_beam(bolt &beam, int pow, const actor *caster,
         should_destroy_wall = true;
 
         // fall-through
-    case DNGN_STONE_ARCH:          // Floor -- small explosion.
+    case DNGN_STONE_ARCH:
         if (what && *what == nullptr)
             *what = "stone arch";
         hole            = false;  // to hit monsters standing on doors
@@ -2375,8 +2298,8 @@ spret_type cast_fragmentation(int pow, const actor *caster,
     bolt beam;
 
     // should_destroy_wall is an output argument.
-    if (!setup_fragmentation_beam(beam, pow, caster, target, true, false,
-                                  false, &what, should_destroy_wall, hole))
+    if (!setup_fragmentation_beam(beam, pow, caster, target, false, &what,
+                                  should_destroy_wall, hole))
     {
         return SPRET_ABORT;
     }
@@ -2385,8 +2308,8 @@ spret_type cast_fragmentation(int pow, const actor *caster,
     {
         bolt tempbeam;
         bool temp;
-        setup_fragmentation_beam(tempbeam, pow, caster, target, false, true,
-                                 true, nullptr, temp, temp);
+        setup_fragmentation_beam(tempbeam, pow, caster, target, true, nullptr,
+                                 temp, temp);
         tempbeam.is_tracer = true;
         tempbeam.explode(false);
         if (tempbeam.beam_cancelled)
@@ -2422,19 +2345,9 @@ spret_type cast_fragmentation(int pow, const actor *caster,
             mprf("%s shatters!", mon->name(DESC_THE).c_str());
 
         if (caster->is_player())
-        {
-            if (_player_hurt_monster(*mon, beam.damage.roll(),
-                                     BEAM_DISINTEGRATION))
-            {
-                beam.damage.num += 2;
-            }
-        }
+            _player_hurt_monster(*mon, beam.damage.roll(), BEAM_DISINTEGRATION);
         else
-        {
             mon->hurt(caster, beam.damage.roll(), BEAM_DISINTEGRATION);
-            if (!mon->alive())
-                beam.damage.num += 2;
-        }
     }
 
     beam.explode(true, hole);
@@ -3210,6 +3123,38 @@ spret_type cast_scattershot(const actor *caster, int pow, const coord_def &pos,
 
         print_wounds(*mons);
     }
+
+    return SPRET_SUCCESS;
+}
+
+static void _setup_borgnjors_vile_clutch(bolt &beam, int pow)
+{
+    beam.name         = "vile clutch";
+    beam.aux_source   = "vile_clutch";
+    beam.flavour      = BEAM_VILE_CLUTCH;
+    beam.glyph        = dchar_glyph(DCHAR_FIRED_BURST);
+    beam.colour       = GREEN;
+    beam.source_id    = MID_PLAYER;
+    beam.thrower      = KILL_YOU;
+    beam.is_explosion = true;
+    beam.ex_size      = 1;
+    beam.ench_power   = pow;
+    beam.origin_spell = SPELL_BORGNJORS_VILE_CLUTCH;
+}
+
+spret_type cast_borgnjors_vile_clutch(int pow, bolt &beam, bool fail)
+{
+    if (cell_is_solid(beam.target))
+    {
+        canned_msg(MSG_SOMETHING_IN_WAY);
+        return SPRET_ABORT;
+    }
+
+    fail_check();
+
+    _setup_borgnjors_vile_clutch(beam, pow);
+    mpr("Decaying hands burst forth from the earth!");
+    beam.explode();
 
     return SPRET_SUCCESS;
 }

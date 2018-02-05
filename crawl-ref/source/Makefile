@@ -228,7 +228,7 @@ ifeq ($(uname_S),Darwin)
 	BUILD_SQLITE = YesPlease
 	BUILD_ZLIB = YesPlease
 	ifdef TILES
-		EXTRA_LIBS += -framework AppKit -framework AudioUnit -framework CoreAudio -framework ForceFeedback -framework Carbon -framework IOKit -framework OpenGL contrib/install/$(ARCH)/lib/libSDL2main.a
+		EXTRA_LIBS += -framework AppKit -framework AudioUnit -framework CoreAudio -framework ForceFeedback -framework Carbon -framework IOKit -framework OpenGL -framework AudioToolbox -framework CoreVideo contrib/install/$(ARCH)/lib/libSDL2main.a
 		BUILD_FREETYPE = YesPlease
 		BUILD_SDL2 = YesPlease
 		BUILD_SDL2IMAGE = YesPlease
@@ -699,10 +699,10 @@ endif # pkg-config
 
 ifndef GLES
 ifneq ($(uname_S),Darwin)
-ifeq (,$(findstring MINGW,$(uname_S)))
-LIBS += -lGL -lGLU
-else
+ifeq ($(msys),Yes)
 LIBS += -lopengl32 -lglu32
+else
+LIBS += -lGL -lGLU
 endif
 endif
 endif
@@ -721,6 +721,9 @@ CFWARN_L += $(shell w=-Wno-array-bounds;echo|$(GXX) -E -x c++ - -Werror $$w >/de
 CFWARN_L += $(shell w=-Wno-format-zero-length;echo|$(GXX) -E -x c++ - -Werror $$w >/dev/null 2>&1 && echo $$w)
 CFWARN_L += $(shell w=-Wmissing-declarations;echo|$(GXX) -E -x c++ - -Werror $$w >/dev/null 2>&1 && echo $$w)
 CFWARN_L  += $(shell w=-Wredundant-decls;echo|$(GXX) -E -x c++ - -Werror $$w >/dev/null 2>&1 && echo $$w)
+# Avoid warnings about safety checks that might be necessary on other compilers
+# where the same enum is assigned a signed underlying type.
+CFWARN_L  += $(shell w=-Wno-tautological-unsigned-enum-zero-compare;echo|$(GXX) -E -x c++ - -Werror $$w >/dev/null 2>&1 && echo $$w)
 
 CFWARN_L += -Wno-parentheses -Wwrite-strings -Wshadow -pedantic
 CFOTHERS_L = $(EXTERNAL_FLAGS_L) $(EXTRA_FLAGS) $(DEFINES) $(SDL2_CFLAGS)

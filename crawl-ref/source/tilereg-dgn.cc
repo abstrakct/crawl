@@ -108,6 +108,10 @@ void DungeonRegion::pack_buffers()
     if (m_vbuf.empty())
         return;
 
+    coord_def m_vbuf_sz = m_vbuf.size();
+    ASSERT(m_vbuf_sz.x == crawl_view.viewsz.x);
+    ASSERT(m_vbuf_sz.y == crawl_view.viewsz.y);
+
     screen_cell_t *vbuf_cell = m_vbuf;
     for (int y = 0; y < crawl_view.viewsz.y; ++y)
         for (int x = 0; x < crawl_view.viewsz.x; ++x)
@@ -188,9 +192,11 @@ void DungeonRegion::render()
     }
 
     set_transform();
+    glmanager->set_scissor(0, 0, tile_iw, tile_ih);
     m_buf_dngn.draw();
     draw_minibars();
     m_buf_flash.draw();
+    glmanager->reset_scissor();
 
     FixedArray<tag_def, ENV_SHOW_DIAMETER, ENV_SHOW_DIAMETER> tag_show;
 
@@ -355,6 +361,11 @@ void DungeonRegion::on_resize()
     // TODO enne
 }
 
+bool DungeonRegion::inside(int x, int y)
+{
+    return x >= 0 && y >= 0 && x <= tile_iw && y <= tile_ih;
+}
+
 // FIXME: If the player is targeted, the game asks the player to target
 // something with the mouse, then targets the player anyway and treats
 // mouse click as if it hadn't come during targeting (moves the player
@@ -424,7 +435,7 @@ static bool _is_appropriate_spell(spell_type spell, const actor* target)
 static bool _is_appropriate_evokable(const item_def& item,
                                      const actor* target)
 {
-    if (!item_is_evokable(item, false, false, true))
+    if (!item_is_evokable(item, false))
         return false;
 
     // Only wands for now.
@@ -497,12 +508,13 @@ static bool _evoke_item_on_target(actor* target)
 
     if (item == nullptr)
         return false;
-
+#if TAG_MAJOR_VERSION == 34
     if (is_known_empty_wand(*item))
     {
         mpr("That wand is empty.");
         return false;
     }
+#endif
 
     macro_buf_add_cmd(CMD_EVOKE);
     macro_buf_add(index_to_letter(item->link)); // Inventory letter.
@@ -737,8 +749,7 @@ int DungeonRegion::handle_mouse(MouseEvent &event)
         return CK_MOUSE_CLICK;
     }
 
-    if (mouse_control::current_mode() == MOUSE_MODE_NORMAL
-        || mouse_control::current_mode() == MOUSE_MODE_MACRO
+    if (mouse_control::current_mode() == MOUSE_MODE_MACRO
         || mouse_control::current_mode() == MOUSE_MODE_MORE
         || mouse_control::current_mode() == MOUSE_MODE_PROMPT
         || mouse_control::current_mode() == MOUSE_MODE_YESNO)
@@ -776,6 +787,9 @@ int DungeonRegion::handle_mouse(MouseEvent &event)
         if (!desc.empty())
             tiles.add_text_tag(TAG_CELL_DESC, desc, gc);
     }
+
+    if (mouse_control::current_mode() == MOUSE_MODE_NORMAL)
+        return 0;
 
     if (!on_map)
         return 0;

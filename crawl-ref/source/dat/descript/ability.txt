@@ -93,6 +93,9 @@ Allows making tunnels through soft rock and rusted grates. Activating the
 ability has no cost and simply prepares you to start digging; once active,
 moving into a wall will start tunneling. Doing so makes some noise and causes
 hunger, and is a little slower than walking.
+
+Once active, activating the ability again or making any non-digging movement
+action will cancel the Dig status.
 %%%%
 Shaft Self ability
 
@@ -483,8 +486,8 @@ up completely, revealing the dungeon floor.
 %%%%
 Growth ability
 
-Uses fruit to grow a ring of plants around yourself. If a complete ring cannot
-be formed (because you do not have enough fruit), plants will grow on squares
+Uses food to grow a ring of plants around yourself. If a complete ring cannot
+be formed (because you do not have enough food), plants will grow on squares
 adjacent to you that are close to monsters. The plants you create gain bonus
 health proportional to your Invocations skill.
 %%%%
@@ -502,10 +505,11 @@ explode, causing damage to you or your enemies.
 %%%%
 Evolution ability
 
-Turns plants and fungi into stronger species. Upgrading fungi requires piety,
-while upgrading plants requires fruit. Upgraded plants gain a bonus to attack
+Turns plants and fungi into stronger species. Upgraded plants gain a bonus to attack
 accuracy proportional to the user's Invocations skill, and oklob plants are
 more likely to spit acid at higher Invocations.
+
+Upgrading fungi requires piety, while upgrading plants requires food.
 %%%%
 # Cheibriados
 Bend Time ability
@@ -621,18 +625,6 @@ Readies a device surge, which triggers on your next usage of a magical device
 to strengthen its power at the cost of some magic. The amount of magical power
 that can be used for a surge varies, but correlates with how devoted a follower
 is to Pakellas.
-%%%%
-Quick Charge ability
-
-Spends two thirds of your current pool of magic to charge a wand. The
-effectiveness of this depends on your current pool of magic and your
-Evocations skill.
-%%%%
-Supercharge ability
-
-Infuses magical energy into a wand. Its capacity is significantly increased
-beyond normal and fully charged to this new capacity. This ability may only be
-used once.
 %%%%
 # Qazlal
 Upheaval ability
@@ -851,13 +843,18 @@ undone.
 Ancestor Identity ability
 
 Recalls who your ancestor preferred to be known as, correcting their name and
-gender. This does not take any time.
+gender.
+%%%%
+Wall Jump ability
+
+Vaults off an adjacent wall towards enemies, striking all enemies adjacent to
+the landing spot and taking two turns to complete the motion.
 %%%%
 Serpent's Lash ability
 
-Allows you to move at supernatural speeds for a short distance, causing the
-next two movement actions taken to be instant. Martial attacks performed under
-the effect of Serpent's Lash are more effective.
+Allows you to move at supernatural speeds, making any movements up to a
+distance of two tiles instantly. Martial attacks performed under the effect of
+Serpent's Lash are more damaging and never miss.
 %%%%
 Heavenly Storm ability
 

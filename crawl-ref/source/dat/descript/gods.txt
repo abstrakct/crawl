@@ -315,17 +315,20 @@ below. They will also be taught to move at unfathomable speeds for short
 distances, and become able to summon a storm of golden clouds to increase their
 precision and damage for as long as they keep using martial attacks.
 
+  .......       ....... (.) <lightred>Lunge</lightred>: Move directly towards an enemy to deal
+  ..<lightred>@</lightred>.O..  -->  ...<lightred>@</lightred>O.. extra damage.
+  .......       .......
+
   .......       ...<lightred>@</lightred>... (*) <lightred>Whirlwind</lightred>: Move between two tiles adjacent to
-  ...<lightred>@</lightred>O..  -->  ....O.. an enemy to strike them.
-  .......       .......
+  ...<lightred>@</lightred>O..  -->  ....O.. an enemy to strike them lightly. The dizzying
+  .......       ....... motion pins monsters in place for one action.
 
-  ..x....       ..x.... (**) <lightred>Wall Jump</lightred>: Move into a wall to vault towards
-  ..x<lightred>@</lightred>O..  -->  ..x.O<lightred>@</lightred>. enemies, striking all enemies adjacent to the landing
-  ..x....       ..x.... spot. May distract any witnessing foes.
+  ..#....       ..#.... (**) <lightred>Wall Jump</lightred>: Move into a wall to vault off it and
+  ..#<lightred>@</lightred>O..  -->  ..#.O<lightred>@</lightred>. strike enemies adjacent to the landing spot. Vaulting
+  ..#....       ..#.... takes two turns. Can also be activated via the
+                        (a)bility menu. Set the config option <lightred>wall_jump_move =
+                        false</lightred> to disable movement-activated wall jump.
 
-  .......       ....... (***) <lightred>Lunge</lightred>: Move directly towards an enemy to deal
-  ..<lightred>@</lightred>.O..  -->  ...<lightred>@</lightred>O.. extra damage, and even more if they are distracted.
-  .......       .......
 %%%%
 Kikubaaqudgha powers
 
@@ -398,8 +401,9 @@ accepting these sacrifices, followers will gradually gain an aura of immense
 power. This aura will initially cause foes that attempt to harm them to falter
 and become stricken with maladies. After making further sacrifices, followers
 will be able to draw on this power to restore their health and magic, or to
-make a lightning-fast explosive leap. Exceptional sacrificiants can unleash
-their power in a massive strike against all their foes.
+make a lightning-fast explosive leap. Exceptional sacrificants can unleash
+their power in a massive strike against all their foes. Each of the powers of
+Ru's sacrificants increases in strength with more piety from more sacrifices.
 %%%%
 Sif Muna powers
 

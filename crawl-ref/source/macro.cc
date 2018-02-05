@@ -711,12 +711,15 @@ static keyseq _getch_mul(int (*rgetch)() = nullptr)
     if (!rgetch)
         rgetch = m_getch;
 
-    keys.push_back(a = rgetch());
-
     // The a == 0 test is legacy code that I don't dare to remove. I
     // have a vague recollection of it being a kludge for conio support.
-    while (kbhit() || a == 0)
-        keys.push_back(a = rgetch());
+    do
+    {
+        a = rgetch();
+        if (a != CK_NO_KEY)
+            keys.push_back(a);
+    }
+    while (keys.size() == 0 || ((kbhit() || a == 0) && a != CK_REDRAW));
 
     return keys;
 }
@@ -1137,6 +1140,24 @@ string read_rc_file_macro(const string& field)
     return "";
 }
 
+// useful for debugging
+string keyseq_to_str(const keyseq &seq)
+{
+    string s = "";
+    for (auto k : seq)
+    {
+        if (k == '\n' || k == '\r')
+            s += "newline";
+        else if (k == '\t')
+            s += "tab";
+        else
+            s += (char) k;
+        s += ", ";
+    }
+    return s.size() == 0 ? s : s.substr(0, s.size() - 2);
+
+}
+
 void macro_init()
 {
     for (const auto &fn : Options.additional_macro_files)
@@ -1462,7 +1483,7 @@ string command_to_string(command_type cmd, bool tutorial)
     return result;
 }
 
-void insert_commands(string &desc, vector<command_type> cmds, bool formatted)
+void insert_commands(string &desc, const vector<command_type> &cmds, bool formatted)
 {
     desc = untag_tiles_console(desc);
     for (command_type cmd : cmds)

@@ -66,6 +66,7 @@ SkillMenuEntry::SkillMenuEntry(coord_def coord)
     m_progress = new EditableTextItem();
     m_progress->set_editable(false);
     m_aptitude = new FormattedTextItem();
+    m_aptitude->allow_highlight(false);
 
 #ifdef USE_TILE_LOCAL
     const int height = skm.get_line_height();
@@ -345,9 +346,6 @@ void SkillMenuEntry::set_aptitude()
     const bool manual = skill_has_manual(m_sk);
     const int apt = species_apt(m_sk, you.species);
 
-    // Manuals aptitude bonus.
-    int manual_bonus = manual ? 4 : 0;
-
     if (apt != 0)
         text += make_stringf("%+d", apt);
     else
@@ -355,18 +353,10 @@ void SkillMenuEntry::set_aptitude()
 
     text += "</white> ";
 
-    if (manual_bonus)
+    if (manual)
     {
         skm.set_flag(SKMF_MANUAL);
-        text += "<lightgreen>";
-
-        // Only room for two characters.
-        if (manual_bonus < 10)
-            text += make_stringf("+%d", manual_bonus);
-        else
-            text += to_string(manual_bonus);
-
-        text += "</lightgreen>";
+        text += "<lightred>+4</lightred>";
     }
 
     m_aptitude->set_text(text);
@@ -1015,6 +1005,9 @@ bool SkillMenu::exit()
 
     if (!enabled_skill && !all_skills_maxed())
     {
+        // Shouldn't happen, but crash rather than locking the player in the
+        // menu. Training will be fixed up on load.
+        ASSERT(you.species != SP_GNOLL);
         set_help("<lightred>You need to enable at least one skill.</lightred>");
         return false;
     }
@@ -1288,7 +1281,7 @@ void SkillMenu::init_button_row()
         m_clear_targets_button->set_id(SKM_CLEAR_TARGETS);
         m_clear_targets_button->add_hotkey('-');
         m_clear_targets_button->set_highlight_colour(YELLOW);
-        add_item(m_clear_targets_button, 22, m_pos);
+        add_item(m_clear_targets_button, 25, m_pos);
         refresh_button_row();
     }
 }
@@ -1437,9 +1430,7 @@ void SkillMenu::refresh_button_row()
         }
     }
     else if (you.species != SP_GNOLL) // SKM_VIEW_TARGETS unavailable for Gn
-    {
         midlegend = "[<yellow>=</yellow>] set a skill target";
-    }
 
     m_help_button->set_text(helpstring + legend);
     m_middle_button->set_text(midlegend);

@@ -1,3 +1,22 @@
+/*
+ * Entry format:
+ *   row  0: species enum
+ *   row  1: two-letter abbreviation
+ *   row  2: name noun, name adjective, genus (null to use name)
+ *   row  3: flags (SPF_*)
+ *   row  4: XP "aptitude", HP mod (in tenths), MP mod, MR per XL
+ *   row  5: corresponding monster
+ *   row  6: habitat, undead state, size
+ *   row  7: starting strength, intelligence, dexterity  // sum
+ *   row  8: { level-up stats }, level for stat increase
+ *   row  9: { { mutation, mutation level, XP level }, ... }
+ *   row 10: { fake mutation messages for A screen }
+ *   row 11: { fake mutation names for % screen }
+ *   row 12: recommended jobs for character selection
+ *   row 13: recommended weapons for character selection
+ *
+ * Rows 9-13 may span multiple lines if necessary.
+ */
 static const map<species_type, species_def> species_data =
 {
 
@@ -307,7 +326,7 @@ static const map<species_type, species_def> species_data =
     HT_LAND, US_ALIVE, SIZE_LITTLE,
     4, 9, 11, // 24
     { STAT_INT, STAT_DEX }, 5,
-    { { MUT_CARNIVOROUS, 3, 1 }, { MUT_FAST, 1, 1 }, { MUT_FANGS, 3, 1 },
+    { { MUT_CARNIVOROUS, 1, 1 }, { MUT_FAST, 1, 1 }, { MUT_FANGS, 3, 1 },
       { MUT_SHAGGY_FUR, 1, 1 }, { MUT_ACUTE_VISION, 1, 1 }, { MUT_PAWS, 1, 1 },
       { MUT_SLOW_METABOLISM, 1, 1 }, { MUT_CLAWS, 1, 1 },
       { MUT_SHAGGY_FUR, 1, 6 }, { MUT_SHAGGY_FUR, 1, 12 }, },
@@ -369,7 +388,7 @@ static const map<species_type, species_def> species_data =
     HT_LAND, US_HUNGRY_DEAD, SIZE_MEDIUM,
     11, 3, 4, // 18
     { STAT_STR }, 5,
-    { { MUT_CARNIVOROUS, 3, 1 }, { MUT_NEGATIVE_ENERGY_RESISTANCE, 3, 1 },
+    { { MUT_CARNIVOROUS, 1, 1 }, { MUT_NEGATIVE_ENERGY_RESISTANCE, 3, 1 },
       { MUT_TORMENT_RESISTANCE, 1, 1 },
       { MUT_INHIBITED_REGENERATION, 1, 1 }, { MUT_COLD_RESISTANCE, 1, 1 },
       { MUT_CLAWS, 1, 1 }, { MUT_UNBREATHING, 1, 1 }, },
@@ -441,7 +460,7 @@ static const map<species_type, species_def> species_data =
     HT_LAND, US_ALIVE, SIZE_SMALL,
     5, 9, 10, // 24
     { STAT_STR, STAT_INT, STAT_DEX }, 5,
-    { { MUT_CARNIVOROUS, 3, 1 }, },
+    { { MUT_CARNIVOROUS, 1, 1 }, },
     {},
     {},
     { JOB_HUNTER, JOB_BERSERKER, JOB_ARCANE_MARKSMAN, JOB_ENCHANTER,
@@ -574,7 +593,7 @@ static const map<species_type, species_def> species_data =
     HT_LAND, US_ALIVE, SIZE_LITTLE,
     4, 9, 11, // 24
     { STAT_INT, STAT_DEX }, 5,
-    { { MUT_FAST, 3, 1 }, { MUT_HERBIVOROUS, 3, 1 },
+    { { MUT_FAST, 3, 1 }, { MUT_HERBIVOROUS, 1, 1 },
       { MUT_ACUTE_VISION, 1, 1 }, { MUT_SLOW_METABOLISM, 2, 1 }, },
     {},
     {},
