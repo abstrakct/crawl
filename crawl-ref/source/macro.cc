@@ -656,6 +656,26 @@ static void write_map(FILE *f, const macromap &mp, const char *key)
 }
 
 /*
+ * Convert a macro or custom keybinding to string s
+ * Based on write_map
+ */
+static void map_to_string(string &s, const macromap &mp, const char *key)
+{
+    for (const auto &entry : mp)
+    {
+        // Need this check, since empty values are added into the
+        // macro struct for all used keyboard commands.
+        if (entry.second.size())
+        {
+            char c[100];
+            sprintf(c, "%s%s\nA:%s\n\n", OUTS(key),
+                OUTS(vtostr(entry.first)), OUTS(vtostr(entry.second)));
+            s += c;
+        }
+    }
+}
+
+/*
  * Saves macros into the macrofile, overwriting the old one.
  */
 void macro_save()
@@ -688,6 +708,23 @@ void macro_save()
 
     crawl_state.unsaved_macros = false;
     fclose(f);
+}
+
+/*
+ * Print all macros and custom keybindings to string s.
+ * Based on macro_save()
+ */
+void macros_to_string(string &s)
+{
+    for (int mc = KMC_DEFAULT; mc < KMC_CONTEXT_COUNT; ++mc)
+    {
+        char buf[30] = "K:";
+        if (mc)
+            snprintf(buf, sizeof buf, "K%d:", mc);
+        map_to_string(s, Keymaps[mc], buf);
+    }
+
+    map_to_string(s, Macros, "M:");
 }
 
 /*

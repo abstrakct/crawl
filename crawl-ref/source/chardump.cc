@@ -34,6 +34,7 @@
 #include "items.h"
 #include "kills.h"
 #include "libutil.h"
+#include "macro.h"
 #include "melee-attack.h"
 #include "message.h"
 #include "mutation.h"
@@ -84,6 +85,7 @@ static void _sdump_monster_list(dump_params &);
 static void _sdump_vault_list(dump_params &);
 static void _sdump_skill_gains(dump_params &);
 static void _sdump_action_counts(dump_params &);
+static void _sdump_macros(dump_params &);
 static void _sdump_separator(dump_params &);
 #ifdef CLUA_BINDINGS
 static void _sdump_lua(dump_params &);
@@ -142,6 +144,7 @@ static dump_section_handler dump_handlers[] =
     { "spell_usage",    _sdump_action_counts }, // compat
     { "action_counts",  _sdump_action_counts },
     { "skill_gains",    _sdump_skill_gains   },
+    { "macros",         _sdump_macros        },
 
     // Conveniences for the .crawlrc artist.
     { "",               _sdump_newline       },
@@ -1384,6 +1387,20 @@ static void _sdump_skill_gains(dump_params &par)
                                  you.skill(skill, 10, true) * 0.1);
     }
     par.text += "\n";
+}
+
+static void _sdump_macros(dump_params &par)
+{
+    string text;
+
+    macros_to_string(text);
+
+    par.text += "Macros and custom keybindings:\n";
+    par.text += "------------------------------\n";
+    par.text += text;
+    par.text += "------------------------------------\n";
+    par.text += "End of macros and custom keybindings\n";
+    par.text += "------------------------------------\n";
 }
 
 static void _sdump_mutations(dump_params &par)
