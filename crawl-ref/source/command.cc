@@ -429,9 +429,6 @@ static help_file help_files[] =
 // a selectable menu and prints the corresponding answer for a chosen question.
 static bool _handle_FAQ()
 {
-    clrscr();
-    viewwindow();
-
     vector<string> question_keys = getAllFAQKeys();
     if (question_keys.empty())
     {
@@ -442,6 +439,11 @@ static bool _handle_FAQ()
     MenuEntry *title = new MenuEntry("Frequently Asked Questions");
     title->colour = YELLOW;
     FAQmenu.set_title(title);
+
+#ifdef USE_TILE_LOCAL
+    // Ensure we get the full screen size when calling get_number_of_cols()
+    cgotoxy(1, 1);
+#endif
     const int width = get_number_of_cols();
 
     for (unsigned int i = 0, size = question_keys.size(); i < size; i++)
@@ -474,7 +476,6 @@ static bool _handle_FAQ()
     while (true)
     {
         vector<MenuEntry*> sel = FAQmenu.show();
-        redraw_screen();
         if (sel.empty())
             return false;
         else
@@ -490,14 +491,7 @@ static bool _handle_FAQ()
                          "bug report!";
             }
             answer = "Q: " + getFAQ_Question(key) + "\n" + answer;
-            linebreak_string(answer, width - 1, true);
-            {
-#ifdef USE_TILE_WEB
-                tiles_crt_control show_as_menu(CRT_MENU, "faq_entry");
-#endif
-                print_description(answer);
-                getchm();
-            }
+            show_description(answer);
         }
     }
 
@@ -516,6 +510,12 @@ static int _keyhelp_keyfilter(int ch)
             return -1;
         }
         break;
+
+    case CK_HOME:
+        list_commands(0);
+        clrscr();
+        redraw_screen();
+        return -1;
 
     case '#':
         // If the game has begun, show dump.
@@ -712,9 +712,6 @@ void show_levelmap_help()
 void show_targeting_help()
 {
     column_composer cols(2, 40);
-    // Page size is number of lines - one line for --more-- prompt.
-    cols.set_pagesize(get_number_of_lines() - 1);
-
     cols.add_formatted(0, targeting_help_1, true);
 #ifdef WIZARD
     if (you.wizard)
@@ -746,6 +743,11 @@ void show_butchering_help()
 void show_skill_menu_help()
 {
     show_specific_help("skill-menu");
+}
+
+void show_spell_library_help()
+{
+    show_specific_help("spell-library");
 }
 
 static void _add_command(column_composer &cols, const int column,
@@ -1229,13 +1231,10 @@ static void _add_formatted_hints_help(column_composer &cols)
             false);
 }
 
-void list_commands(int hotkey, bool do_redraw_screen, string highlight_string)
+void list_commands(int hotkey, string highlight_string)
 {
     // 2 columns, split at column 40.
     column_composer cols(2, 41);
-
-    // Page size is number of lines - one line for --more-- prompt.
-    cols.set_pagesize(get_number_of_lines() - 1);
 
     if (crawl_state.game_is_hints_tutorial())
         _add_formatted_hints_help(cols);
@@ -1244,10 +1243,4 @@ void list_commands(int hotkey, bool do_redraw_screen, string highlight_string)
 
     show_keyhelp_menu(cols.formatted_lines(), true, Options.easy_exit_menu,
                        hotkey, highlight_string);
-
-    if (do_redraw_screen)
-    {
-        clrscr();
-        redraw_screen();
-    }
 }

@@ -952,7 +952,6 @@ static bool _id_floor_item(item_def &item)
         if (item_needs_autopickup(item))
             item.props["needs_autopickup"] = true;
         set_ident_flags(item, ISFLAG_IDENT_MASK);
-        mark_had_book(item);
         return true;
     }
     else if (item.base_type == OBJ_WANDS)
@@ -1767,12 +1766,10 @@ static bool _put_item_in_inv(item_def& it, int quant_got, bool quiet, bool& put_
 
         // cleanup items that ended up in an inventory slot (not gold, etc)
         if (inv_slot != -1)
-        {
             _got_item(you.inv[inv_slot]);
-            _check_note_item(you.inv[inv_slot]);
-        }
-        else
-            _check_note_item(it);
+        else if (it.base_type == OBJ_BOOKS)
+            _got_item(it);
+        _check_note_item(inv_slot == -1 ? it : you.inv[inv_slot]);
         return true;
     }
 
@@ -1826,6 +1823,55 @@ bool move_item_to_inv(int obj, int quant_got, bool quiet)
     }
 
     return keep_going;
+}
+
+static void _get_book(const item_def& it, bool quiet, bool allow_auto_hide)
+{
+    vector<spell_type> spells;
+    if (!quiet)
+        mprf("You pick up %s and begin reading...", it.name(DESC_A).c_str());
+    for (spell_type st : spells_in_book(it))
+    {
+        if (!you.spell_library[st])
+        {
+            you.spell_library.set(st, true);
+            bool memorise = you_can_memorise(st);
+            if (memorise)
+                spells.push_back(st);
+            if (!memorise || (Options.auto_hide_spells && allow_auto_hide))
+                you.hidden_spells.set(st, true);
+        }
+    }
+    if (!quiet)
+    {
+        if (!spells.empty())
+        {
+            vector<string> spellnames(spells.size());
+            transform(spells.begin(), spells.end(), spellnames.begin(), spell_title);
+            mprf("You add the spell%s %s to your library.",
+                 spellnames.size() > 1 ? "s" : "",
+                 comma_separated_line(spellnames.begin(),
+                                      spellnames.end()).c_str());
+        }
+        else
+            mpr("Unfortunately, it added no spells to the library.");
+    }
+    shopping_list.spells_added_to_library(spells, quiet);
+}
+
+// Adds all books in the player's inventory to library.
+// Declared here for use by tags to load old saves.
+// Outside of loading old saves, only used at character creation.
+void add_held_books_to_library()
+{
+    for (item_def& it : you.inv)
+    {
+        if (it.base_type == OBJ_BOOKS && it.sub_type != BOOK_MANUAL)
+        {
+            _get_book(it, true, false);
+            destroy_item(it);
+        }
+    }
 }
 
 /**
@@ -2064,10 +2110,7 @@ static int _place_item_in_free_slot(item_def &it, int quant_got,
 
     maybe_identify_base_type(item);
     if (item.base_type == OBJ_BOOKS)
-    {
         set_ident_flags(item, ISFLAG_IDENT_MASK);
-        mark_had_book(item);
-    }
 
     // Normalize ration tile in inventory
     if (item.base_type == OBJ_FOOD && item.sub_type == FOOD_RATION)
@@ -2133,7 +2176,11 @@ static bool _merge_items_into_inv(item_def &it, int quant_got,
         get_gold(it, quant_got, quiet);
         return true;
     }
-
+    if (it.base_type == OBJ_BOOKS && it.sub_type != BOOK_MANUAL)
+    {
+        _get_book(it, quiet, true);
+        return true;
+    }
     // Runes are also massless.
     if (it.base_type == OBJ_RUNES)
     {
@@ -4778,38 +4825,12 @@ item_info get_item_info(const item_def& item)
 
         if (is_deck(item))
         {
+            // All cards are passed through, whether seen or not, as
+            // _describe_deck() needs to check card flags anyway.
             ii.deck_rarity = item.deck_rarity;
-
-            const int num_cards = cards_in_deck(item);
-            CrawlVector info_cards (SV_BYTE);
-            CrawlVector info_card_flags (SV_BYTE);
-
-            // TODO: this leaks both whether the seen cards are still there
-            // and their order: the representation needs to be fixed
-
-            // The above comment seems obsolete now that Mark Four is gone.
-
-            // I don't think so... Stack Five has a quite similar effect
-            // if you abanadon Nemelex and get the card shuffled.
-            for (int i = 0; i < num_cards; ++i)
-            {
-                uint8_t flags;
-                const card_type card = get_card_and_flags(item, -i-1, flags);
-                if (flags & CFLAG_SEEN)
-                {
-                    info_cards.push_back((char)card);
-                    info_card_flags.push_back((char)flags);
-                }
-            }
-
-            if (info_cards.empty())
-            {
-                // An empty deck would display as BUGGY, so fake a card.
-                info_cards.push_back((char) 0);
-                info_card_flags.push_back((char) 0);
-            }
-            ii.props[CARD_KEY] = info_cards;
-            ii.props[CARD_FLAG_KEY] = info_card_flags;
+            ii.props[CARD_KEY] = item.props[CARD_KEY];
+            ii.props[CARD_FLAG_KEY] = item.props[CARD_FLAG_KEY];
+            ii.used_count = item.used_count;
         }
         break;
     case OBJ_GOLD:

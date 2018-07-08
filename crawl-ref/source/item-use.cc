@@ -261,11 +261,7 @@ item_def* use_an_item(int item_type, operation_types oper, const char* prompt,
 
         // Handle inscribed item keys
         if (isadigit(keyin))
-        {
-            const int idx = digit_inscription_to_inv_index(keyin, oper);
-            if (idx >= 0)
-                target = &item_from_int(true, idx);
-        }
+            target = digit_inscription_to_item(keyin, oper);
         // TODO: handle * key
         else if (keyin == ',')
         {
@@ -491,8 +487,13 @@ bool wield_weapon(bool auto_wield, int slot, bool show_weff_messages,
         return false;
     else if (item_slot == you.equip[EQ_WEAPON])
     {
-        mpr("You are already wielding that!");
-        return true;
+        if (Options.equip_unequip)
+            item_slot = SLOT_BARE_HANDS;
+        else
+        {
+            mpr("You are already wielding that!");
+            return true;
+        }
     }
 
     // Reset the warning counter.
@@ -1255,6 +1256,12 @@ static int _prompt_ring_to_remove(int new_ring)
         slot_chars.push_back(index_to_letter(rings.back()->link));
     }
 
+    if (slot_chars.size() + 2 > msgwin_lines())
+    {
+        // force a menu rather than a more().
+        return EQ_NONE;
+    }
+
     clear_messages();
 
     mprf(MSGCH_PROMPT,
@@ -1534,8 +1541,18 @@ static bool _swap_rings(int ring_slot)
         if (!all_same || Options.jewellery_prompt)
             unwanted = _prompt_ring_to_remove(ring_slot);
 
+        if (unwanted == EQ_NONE)
+        {
+            // do this here rather than in remove_ring so that the custom
+            // message is visible.
+            unwanted = prompt_invent_item(
+                    "You're wearing all the rings you can. Remove which one?",
+                    MT_INVLIST, OSEL_UNCURSED_WORN_RINGS, OPER_REMOVE,
+                    invprompt_flag::no_warning | invprompt_flag::hide_known);
+        }
+
         // Cancelled:
-        if (unwanted < -1)
+        if (unwanted < 0)
         {
             canned_msg(MSG_OK);
             return false;
@@ -1683,7 +1700,8 @@ static bool _can_puton_jewellery(int item_slot)
 }
 
 // Put on a particular ring or amulet
-static bool _puton_item(int item_slot, bool prompt_slot)
+static bool _puton_item(int item_slot, bool prompt_slot,
+                        bool check_for_inscriptions)
 {
     item_def& item = you.inv[item_slot];
 
@@ -1707,8 +1725,9 @@ static bool _puton_item(int item_slot, bool prompt_slot)
 
     // It looks to be possible to equip this item. Before going any further,
     // we should prompt the user with any warnings that come with trying to
-    // put it on.
-    if (!check_warning_inscriptions(item, OPER_PUTON))
+    // put it on, except when they have already been prompted with them
+    // from switching rings.
+    if (check_for_inscriptions && !check_warning_inscriptions(item, OPER_PUTON))
     {
         canned_msg(MSG_OK);
         return false;
@@ -1816,7 +1835,7 @@ static bool _puton_item(int item_slot, bool prompt_slot)
 }
 
 // Put on a ring or amulet. (If slot is -1, first prompt for which item to put on)
-bool puton_ring(int slot, bool allow_prompt)
+bool puton_ring(int slot, bool allow_prompt, bool check_for_inscriptions)
 {
     int item_slot;
 
@@ -1846,7 +1865,7 @@ bool puton_ring(int slot, bool allow_prompt)
 
     bool prompt = allow_prompt ? Options.jewellery_prompt : false;
 
-    return _puton_item(item_slot, prompt);
+    return _puton_item(item_slot, prompt, check_for_inscriptions);
 }
 
 // Remove the amulet/ring at given inventory slot (or, if slot is -1, prompt
@@ -2131,16 +2150,6 @@ bool god_hates_brand(const int brand)
     {
         return true;
     }
-
-    if (you_worship(GOD_DITHMENOS)
-        && (brand == SPWPN_FLAMING
-            || brand == SPWPN_CHAOS))
-    {
-        return true;
-    }
-
-    if (you_worship(GOD_SHINING_ONE) && brand == SPWPN_VENOM)
-        return true;
 
     if (you_worship(GOD_CHEIBRIADOS) && (brand == SPWPN_CHAOS
                                          || brand == SPWPN_SPEED))
@@ -2562,7 +2571,6 @@ static void _handle_read_book(item_def& book)
 #endif
 
     set_ident_flags(book, ISFLAG_IDENT_MASK);
-    mark_had_book(book);
     read_book(book);
 }
 
@@ -2954,9 +2962,6 @@ void read_scroll(item_def& scroll)
 
     case SCR_IMMOLATION:
     {
-        // Dithmenos hates trying to play with fire, even if it does nothing.
-        did_god_conduct(DID_FIRE, 2 + random2(3), item_type_known(scroll));
-
         bool had_effect = false;
         for (monster_near_iterator mi(you.pos(), LOS_NO_TRANS); mi; ++mi)
         {
@@ -3300,14 +3305,6 @@ void tile_item_use(int idx)
         case OBJ_FOOD:
             if (check_warning_inscriptions(item, OPER_EAT))
                 eat_food(idx);
-            return;
-
-        case OBJ_BOOKS:
-            if (item_is_spellbook(item)
-                && check_warning_inscriptions(item, OPER_MEMORISE))
-            {
-                learn_spell_from(item);
-            }
             return;
 
         case OBJ_SCROLLS:

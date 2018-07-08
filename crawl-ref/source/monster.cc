@@ -201,7 +201,7 @@ void monster::init_with(const monster& mon)
     damage_total      = mon.damage_total;
     xp_tracking       = mon.xp_tracking;
 
-    if (mon.ghost.get())
+    if (mon.ghost)
         ghost.reset(new ghost_demon(*mon.ghost));
     else
         ghost.reset(nullptr);
@@ -2204,7 +2204,7 @@ bool monster::has_base_name() const
 {
     // Any non-ghost, non-Pandemonium demon that has an explicitly set
     // name has a base name.
-    return !mname.empty() && !ghost.get();
+    return !mname.empty() && !ghost;
 }
 
 static string _invalid_monster_str(monster_type type)
@@ -3982,9 +3982,11 @@ bool monster::res_torment() const
            || get_mons_resist(*this, MR_RES_TORMENT) > 0;
 }
 
-bool monster::res_wind() const
+bool monster::res_tornado() const
 {
-    return has_ench(ENCH_TORNADO) || get_mons_resist(*this, MR_RES_WIND) > 0;
+    return has_ench(ENCH_TORNADO)
+           || has_ench(ENCH_VORTEX)
+           || get_mons_resist(*this, MR_RES_TORNADO) > 0;
 }
 
 bool monster::res_petrify(bool /*temp*/) const
@@ -4128,7 +4130,7 @@ bool monster::airborne() const
 {
     // For dancing weapons, this function can get called before their
     // ghost_demon is created, so check for a nullptr ghost. -cao
-    return mons_is_ghost_demon(type) && ghost.get() && ghost->flies
+    return mons_is_ghost_demon(type) && ghost && ghost->flies
            // check both so spectral humans and zombified dragons both fly
            || mons_class_flag(mons_base_type(*this), M_FLIES)
            || mons_class_flag(type, M_FLIES)
@@ -4922,7 +4924,7 @@ void monster::set_transit(const level_id &dest)
 
 void monster::load_ghost_spells()
 {
-    if (!ghost.get())
+    if (!ghost)
     {
         spells.clear();
         return;

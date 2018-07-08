@@ -109,6 +109,7 @@
 #include "mon-transit.h"
 #include "mon-util.h"
 #include "mutation.h"
+#include "movement.h"
 #include "nearby-danger.h"
 #include "notes.h"
 #include "options.h"
@@ -132,6 +133,7 @@
 #include "spl-damage.h"
 #include "spl-goditem.h"
 #include "spl-other.h"
+#include "spl-selfench.h"
 #include "spl-summoning.h"
 #include "spl-transloc.h"
 #include "spl-util.h"
@@ -330,7 +332,10 @@ int main(int argc, char *argv[])
 #endif
 
     _launch_game_loop();
-    end(0);
+    if (crawl_state.last_game_exit.message.size())
+        end(0, false, "%s\n", crawl_state.last_game_exit.message.c_str());
+    else
+        end(0);
 
     return 0;
 }
@@ -376,7 +381,7 @@ static void _launch_game_loop()
         catch (game_ended_condition &ge)
         {
             game_ended = true;
-            crawl_state.last_game_exit = ge.exit_reason;
+            crawl_state.last_game_exit = ge;
             _reset_game();
 
             // Don't re-enter the Sprint menu with restart_after_save, as
@@ -392,7 +397,7 @@ static void _launch_game_loop()
         {
             end(1, false, "Error: truncation inside the save file.\n");
         }
-    } while (crawl_should_restart(crawl_state.last_game_exit)
+    } while (crawl_should_restart(crawl_state.last_game_exit.exit_reason)
              && game_ended
              && !crawl_state.seen_hups);
 }
@@ -410,13 +415,7 @@ NORETURN static void _launch_game()
 
     _set_removed_types_as_identified();
 
-    if (!game_start && you.prev_save_version != Version::Long)
-    {
-        const string note = make_stringf("Upgraded the game from %s to %s",
-                                         you.prev_save_version.c_str(),
-                                         Version::Long);
-        take_note(Note(NOTE_MESSAGE, 0, 0, note));
-    }
+    Version::record(you.prev_save_version);
 
     if (!crawl_state.game_is_tutorial())
     {
@@ -1118,6 +1117,14 @@ static void _input()
 #endif
         const command_type cmd = you.turn_is_over ? CMD_NO_CMD : _get_next_cmd();
 
+        // Clear "last action was a move or rest" flag.
+        // This needs to be after _get_next_cmd, which triggers a tiles redraw.
+        if (you.props[LAST_ACTION_WAS_MOVE_OR_REST_KEY].get_bool())
+        {
+            you.props[LAST_ACTION_WAS_MOVE_OR_REST_KEY] = false;
+            you.redraw_evasion = true;
+        }
+
         if (crawl_state.seen_hups)
             save_game(true, "Game saved, see you later!");
 
@@ -1199,7 +1206,13 @@ static bool _can_take_stairs(dungeon_feature_type ftype, bool down,
     // Up and down both work for shops, portals, and altars.
     if (ftype == DNGN_ENTER_SHOP || feat_is_altar(ftype))
     {
-        if (you.berserk())
+        if (crawl_state.doing_prev_cmd_again)
+        {
+            mprf("You can't repeat %s actions.",
+                ftype == DNGN_ENTER_SHOP ? "shop" : "altar");
+            crawl_state.cancel_cmd_all();
+        }
+        else if (you.berserk())
             canned_msg(MSG_TOO_BERSERK);
         else if (ftype == DNGN_ENTER_SHOP) // don't convert to capitalism
             shop();
@@ -1467,6 +1480,7 @@ static void _take_stairs(bool down)
                              && ygrd != DNGN_UNDISCOVERED_TRAP);
 
     if (!(_can_take_stairs(ygrd, down, shaft)
+          && !cancel_barbed_move()
           && _prompt_stairs(ygrd, down, shaft)
           && you.attempt_escape())) // false means constricted and don't escape
     {
@@ -1589,7 +1603,7 @@ static void _toggle_travel_speed()
 
 static void _do_rest()
 {
-    if (you.hunger_state <= HS_STARVING && !you_min_hunger())
+    if (apply_starvation_penalties())
     {
         mpr("You're too hungry to rest.");
         return;
@@ -1674,6 +1688,7 @@ static void _do_list_gold()
 void process_command(command_type cmd)
 {
     you.apply_berserk_penalty = true;
+
     switch (cmd)
     {
 #ifdef USE_TILE
@@ -1748,7 +1763,7 @@ void process_command(command_type cmd)
         break;
     }
 #endif
-    case CMD_REST:            _do_rest(); break;
+    case CMD_REST:           _do_rest(); break;
 
     case CMD_GO_UPSTAIRS:
     case CMD_GO_DOWNSTAIRS:
@@ -1814,6 +1829,7 @@ void process_command(command_type cmd)
             break;
         // else fall-through
     case CMD_WAIT:
+        update_acrobat_status();
         you.turn_is_over = true;
         break;
 
@@ -1873,7 +1889,7 @@ void process_command(command_type cmd)
 
         // Informational commands.
     case CMD_DISPLAY_CHARACTER_STATUS: display_char_status();          break;
-    case CMD_DISPLAY_COMMANDS:         list_commands(0, true);         break;
+    case CMD_DISPLAY_COMMANDS:         list_commands(0); clrscr(); redraw_screen(); break;
     case CMD_DISPLAY_INVENTORY:        display_inventory();            break;
     case CMD_DISPLAY_KNOWN_OBJECTS: check_item_knowledge(); redraw_screen(); break;
     case CMD_DISPLAY_MUTATIONS: display_mutations(); redraw_screen();  break;
@@ -1892,10 +1908,6 @@ void process_command(command_type cmd)
 
     case CMD_DISPLAY_RELIGION:
     {
-#ifdef USE_TILE_WEB
-        if (!you_worship(GOD_NO_GOD))
-            tiles_crt_control show_as_menu(CRT_MENU, "describe_god");
-#endif
         describe_god(you.religion, true);
         redraw_screen();
         break;
@@ -2419,24 +2431,6 @@ static int _check_adjacent(dungeon_feature_type feat, coord_def& delta)
     return num;
 }
 
-static bool _cancel_barbed_move()
-{
-    if (you.duration[DUR_BARBS] && !you.props.exists(BARBS_MOVE_KEY))
-    {
-        string prompt = "The barbs in your skin will harm you if you move."
-                        " Continue?";
-        if (!yesno(prompt.c_str(), false, 'n'))
-        {
-            canned_msg(MSG_OK);
-            return true;
-        }
-
-        you.props[BARBS_MOVE_KEY] = true;
-    }
-
-    return false;
-}
-
 static bool _cancel_confused_move(bool stationary)
 {
     dungeon_feature_type dangerous = DNGN_FLOOR;
@@ -2877,6 +2871,7 @@ static void _entered_malign_portal(actor* act)
 
 // Called when the player moves by walking/running. Also calls attack
 // function etc when necessary.
+// TODO: Move player movement code to its own file
 static void _move_player(coord_def move)
 {
     ASSERT(!crawl_state.game_is_arena() && !crawl_state.arena_suspended);
@@ -2915,7 +2910,7 @@ static void _move_player(coord_def move)
         if (_cancel_confused_move(false))
             return;
 
-        if (_cancel_barbed_move())
+        if (cancel_barbed_move())
             return;
 
         if (!one_chance_in(3))
@@ -3007,7 +3002,7 @@ static void _move_player(coord_def move)
 
     if (you.digging)
     {
-        if (you.hunger_state <= HS_STARVING && you.undead_state() == US_ALIVE)
+        if (apply_starvation_penalties())
         {
             you.digging = false;
             canned_msg(MSG_TOO_HUNGRY);
@@ -3134,7 +3129,7 @@ static void _move_player(coord_def move)
 
         // If confused, we've already been prompted (in case of stumbling into
         // a monster and attacking instead).
-        if (!you.confused() && _cancel_barbed_move())
+        if (!you.confused() && cancel_barbed_move())
             return;
 
         if (!you.attempt_escape()) // false means constricted and did not escape
@@ -3142,13 +3137,7 @@ static void _move_player(coord_def move)
 
         if (you.duration[DUR_WATER_HOLD])
         {
-            if (you.can_swim())
-                mpr("You deftly slip free of the water engulfing you.");
-            else //Unless you're a natural swimmer, this takes longer than normal
-            {
-                mpr("With effort, you pull free of the water engulfing you.");
-                you.time_taken = you.time_taken * 3 / 2;
-            }
+            mpr("You slip free of the water engulfing you.");
             you.duration[DUR_WATER_HOLD] = 1;
             you.props.erase("water_holder");
         }
@@ -3206,20 +3195,8 @@ static void _move_player(coord_def move)
         if (swap)
             targ_monst->apply_location_effects(targ);
 
-        if (you.duration[DUR_BARBS])
-        {
-            mprf(MSGCH_WARN, "The barbed spikes dig painfully into your body "
-                             "as you move.");
-            ouch(roll_dice(2, you.attribute[ATTR_BARBS_POW]), KILLED_BY_BARBS);
-            bleed_onto_floor(you.pos(), MONS_PLAYER, 2, false);
-
-            // Sometimes decrease duration even when we move.
-            if (one_chance_in(3))
-                extract_manticore_spikes("The barbed spikes snap loose.");
-            // But if that failed to end the effect, duration stays the same.
-            if (you.duration[DUR_BARBS])
-                you.duration[DUR_BARBS] += you.time_taken;
-        }
+        apply_barbs_damage();
+        remove_ice_armour_movement();
 
         if (you_are_delayed() && current_delay()->is_run())
             env.travel_trail.push_back(you.pos());
@@ -3262,6 +3239,8 @@ static void _move_player(coord_def move)
         && feat_is_closed_door(targ_grid))
     {
         _open_door(move);
+        move.reset();
+        return;
     }
     else if (!targ_pass && grd(targ) == DNGN_MALIGN_GATEWAY
              && !attacking && !you.is_stationary())
@@ -3324,8 +3303,16 @@ static void _move_player(coord_def move)
         did_god_conduct(DID_HASTY, 1, true);
     }
 
+    bool did_wu_jian_attack = false;
     if (you_worship(GOD_WU_JIAN) && !attacking)
-        wu_jian_post_move_effects(did_wall_jump, initial_position);
+    {
+        did_wu_jian_attack = wu_jian_post_move_effects(did_wall_jump,
+                                                       initial_position);
+    }
+
+    // If you actually moved you are eligible for amulet of the acrobat.
+    if (!attacking && moving && !did_wu_jian_attack && !did_wall_jump)
+        update_acrobat_status();
 }
 
 static int _get_num_and_char(const char* prompt, char* buf, int buf_len)

@@ -28,6 +28,7 @@
 #include "env.h"
 #include "errors.h"
 #include "fight.h"
+#include "files.h"
 #include "food.h"
 #include "fprop.h"
 #include "ghost.h"
@@ -1704,7 +1705,6 @@ bool mons_class_can_use_stairs(monster_type mc)
     return (!mons_class_is_zombified(mc) || mc == MONS_SPECTRAL_THING)
            && !mons_is_tentacle_or_tentacle_segment(mc)
            && mc != MONS_SILENT_SPECTRE
-           && mc != MONS_PLAYER_GHOST
            && mc != MONS_GERYON
            && mc != MONS_ROYAL_JELLY;
 }
@@ -1935,7 +1935,7 @@ mon_attack_def mons_attack_spec(const monster& m, int attk_number,
 
     if (mons_is_ghost_demon(mc))
     {
-        if (attk_number == 0)
+        if (attk_number == 0 && mon.ghost)
         {
             return { mon.ghost->att_type, mon.ghost->att_flav,
                      mon.ghost->damage };
@@ -2168,9 +2168,9 @@ bool mons_flattens_trees(const monster& mon)
     return mons_base_type(mon) == MONS_LERNAEAN_HYDRA;
 }
 
-bool mons_class_res_wind(monster_type mc)
+bool mons_class_res_tornado(monster_type mc)
 {
-    return get_resist(get_mons_class_resists(mc), MR_RES_WIND);
+    return get_resist(get_mons_class_resists(mc), MR_RES_TORNADO);
 }
 
 /**
@@ -2407,7 +2407,6 @@ int exper_value(const monster& mon, bool real)
             case SPELL_AGONY:
             case SPELL_LRD:
             case SPELL_DIG:
-            case SPELL_CHAIN_OF_CHAOS:
             case SPELL_FAKE_MARA_SUMMON:
                 diff += 10;
                 break;
@@ -2942,10 +2941,23 @@ void define_monster(monster& mons)
     }
 
     case MONS_PLAYER_GHOST:
+    {
+        if (define_ghost_from_bones(mons))
+            break;
+        dprf("No ghosts found in bones, falling back on mirrored player");
+        // intentional fallthrough -- fall back on mirroring the player
+    }
     case MONS_PLAYER_ILLUSION:
     {
         ghost_demon ghost;
         ghost.init_player_ghost(mcls == MONS_PLAYER_GHOST);
+        if (mcls == MONS_PLAYER_GHOST)
+        {
+            // still don't allow undead ghosts, even mirrored
+            if (you.undead_state(false) != US_ALIVE)
+                ghost.species = SP_HUMAN;
+            mons.props[MIRRORED_GHOST_KEY] = true;
+        }
         mons.set_ghost(ghost);
         mons.ghost_init(!mons.props.exists("fake"));
         break;
@@ -3248,7 +3260,7 @@ mon_energy_usage mons_class_energy(monster_type mc)
 mon_energy_usage mons_energy(const monster& mon)
 {
     mon_energy_usage meu = mons_class_energy(mons_base_type(mon));
-    if (mon.ghost.get())
+    if (mon.ghost)
         meu.move = meu.swim = mon.ghost->move_energy;
     return meu;
 }
@@ -3269,7 +3281,7 @@ int mons_class_zombie_base_speed(monster_type zombie_base_mc)
  */
 int mons_base_speed(const monster& mon, bool known)
 {
-    if (mon.ghost.get())
+    if (mon.ghost)
         return mon.ghost->speed;
 
     if (mon.props.exists(MON_SPEED_KEY)
@@ -5189,7 +5201,8 @@ bool mons_is_recallable(const actor* caller, const monster& targ)
     // Monster recall requires same attitude and at least normal intelligence
     else if (mons_intel(targ) < I_HUMAN
              || (!caller && targ.friendly())
-             || (caller && !mons_aligned(&targ, caller->as_monster())))
+             || (caller && !mons_aligned(&targ, caller->as_monster()))
+             || targ.type == MONS_PLAYER_GHOST)
     {
         return false;
     }
@@ -5484,14 +5497,6 @@ bool mons_is_notable(const monster& mons)
     return false;
 }
 
-bool god_hates_beast_facet(god_type god, beast_facet facet)
-{
-    ASSERT_RANGE(facet, BF_FIRST, BF_LAST+1);
-
-    // Only one so far.
-    return god == GOD_DITHMENOS && facet == BF_FIRE;
-}
-
 /**
  * Set up fields for mutant beasts that vary by tier & facets (that is, that
  * vary between individual beasts).
@@ -5500,11 +5505,8 @@ bool god_hates_beast_facet(god_type god, beast_facet facet)
  * @param HD            The beast's HD. If 0, default to mon-data's version.
  * @param beast_facets  The beast's facets (e.g. fire, bat).
  *                      If empty, chooses two distinct facets at random.
- * @param avoid_facets  A set of facets to avoid when randomly generating
- *                      beasts. Irrelevant if beast_facets is non-empty.
  */
-void init_mutant_beast(monster &mons, short HD, vector<int> beast_facets,
-                       set<int> avoid_facets)
+void init_mutant_beast(monster &mons, short HD, vector<int> beast_facets)
 {
     if (!HD)
         HD = mons.get_experience_level();
@@ -5516,8 +5518,7 @@ void init_mutant_beast(monster &mons, short HD, vector<int> beast_facets,
     {
         vector<int> available_facets;
         for (int f = BF_FIRST; f <= BF_LAST; ++f)
-            if (avoid_facets.count(f) == 0)
-                available_facets.insert(available_facets.end(), f);
+            available_facets.insert(available_facets.end(), f);
 
         ASSERT(available_facets.size() >= 2);
 
@@ -5728,7 +5729,8 @@ static bool _apply_to_monsters(monster_func f, radius_iterator&& ri)
 bool apply_monsters_around_square(monster_func f, const coord_def& where,
                                   int radius)
 {
-    return _apply_to_monsters(f, radius_iterator(where, radius, C_SQUARE, true));
+    return _apply_to_monsters(f, radius_iterator(where, radius, C_SQUARE,
+                                                 LOS_NO_TRANS, true));
 }
 
 bool apply_visible_monsters(monster_func f, const coord_def& where, los_type los)

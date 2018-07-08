@@ -570,8 +570,8 @@ static level_pos _stair_dest(const coord_def& p, command_type dir)
 
 static void _unforget_map()
 {
-    ASSERT(env.map_forgotten.get());
-    MapKnowledge &old(*env.map_forgotten.get());
+    ASSERT(env.map_forgotten);
+    MapKnowledge &old(*env.map_forgotten);
 
     for (rectangle_iterator ri(0); ri; ++ri)
         if (!env.map_knowledge(*ri).seen() && old(*ri).seen())
@@ -586,7 +586,7 @@ static void _unforget_map()
         }
 }
 
-static void _forget_map()
+static void _forget_map(bool wizard_forget = false)
 {
     for (rectangle_iterator ri(0); ri; ++ri)
     {
@@ -594,9 +594,16 @@ static void _forget_map()
         // don't touch squares we can currently see
         if (flags & MAP_VISIBLE_FLAG)
             continue;
-        // squares we've seen in the past, pretend we've mapped instead
-        if (flags & MAP_SEEN_FLAG)
+        if (wizard_forget)
         {
+            env.map_knowledge(*ri).clear();
+#ifdef USE_TILE
+            tile_forget_map(*ri);
+#endif
+        }
+        else if (flags & MAP_SEEN_FLAG)
+        {
+            // squares we've seen in the past, pretend we've mapped instead
             flags |= MAP_MAGIC_MAPPED_FLAG;
             flags &= ~MAP_SEEN_FLAG;
         }
@@ -878,10 +885,29 @@ bool show_map(level_pos &lpos,
                 clear_map_or_travel_trail();
                 break;
 
+#ifdef WIZARD
+            case CMD_MAP_WIZARD_FORGET:
+                {
+                    // this doesn't seem useful outside of debugging and may
+                    // be buggy in unexpected ways, so wizmode-only. (Though
+                    // it doesn't leak information or anything.)
+                    if (!you.wizard)
+                        break;
+                    if (env.map_forgotten)
+                        _unforget_map();
+                    MapKnowledge *old = new MapKnowledge(env.map_knowledge);
+                    // completely wipe out map
+                    _forget_map(true);
+                    env.map_forgotten.reset(old);
+                    mpr("Level map wiped.");
+                    break;
+                }
+#endif
+
             case CMD_MAP_FORGET:
                 {
                     // Merge it with already forgotten data first.
-                    if (env.map_forgotten.get())
+                    if (env.map_forgotten)
                         _unforget_map();
                     MapKnowledge *old = new MapKnowledge(env.map_knowledge);
                     _forget_map();
@@ -891,7 +917,7 @@ bool show_map(level_pos &lpos,
                 break;
 
             case CMD_MAP_UNFORGET:
-                if (env.map_forgotten.get())
+                if (env.map_forgotten)
                 {
                     _unforget_map();
                     env.map_forgotten.reset();
@@ -1157,8 +1183,19 @@ bool show_map(level_pos &lpos,
                 {
                     if (you.travel_x > 0 && you.travel_y > 0)
                     {
-                        move_x = you.travel_x - lpos.pos.x;
-                        move_y = you.travel_y - lpos.pos.y;
+                        if (you.travel_z == level_id::current())
+                        {
+                            move_x = you.travel_x - lpos.pos.x;
+                            move_y = you.travel_y - lpos.pos.y;
+                        }
+                        else if (allow_offlevel && you.travel_z.is_valid()
+                                        && is_existing_level(you.travel_z))
+                        {
+                            // previous travel target is offlevel
+                            lpos = level_pos(you.travel_z,
+                                        coord_def(you.travel_x, you.travel_y));
+                            los_changed();
+                        }
                     }
                 }
                 else

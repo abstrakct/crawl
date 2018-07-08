@@ -342,20 +342,6 @@ function callback.wizlab_wucad_wucad_died(data, triggerable,
   dgn.persist.wucad_mu_died = true
   crawl.mpr("The shadows inhabiting this place fade forever.", "talk_visual")
 end
-
--- Remove this function when TAG_MAJOR > 34
-function teleporter_golubria_switch_fn(data, triggerable, triggerer, marker, ev)
-  local position = dgn.point(marker:pos())
-  my_slaves = dgn.find_marker_positions_by_prop("teleport_spot",
-                                                data.teleport_spot)
-
-  if you.teleport_to(my_slaves[1].x, my_slaves[1].y, true) then
-    crawl.mpr("Your surroundings suddenly seem different!")
-  else
-    crawl.mpr("There is a strange hissing noise.")
-  end
-end
-
 }}
 
 default-depth: Depths, Elf, Crypt, Vaults:1-4
@@ -1088,7 +1074,7 @@ nsubst("G = " .. graves .. ":G / *:.")
 lua_marker("G", portal_desc { grave = 1 })
 lua_marker("Z", portal_desc { wizard_grave = 1})
 lua_marker("W", portal_desc { desc="Zonguldrok's gravestone",
-        veto_fragmentation="veto", veto_disintegrate="veto", veto_shatter="veto" })
+        veto_dig="veto", veto_shatter="veto" })
 
 local zombies_appear_marker = TriggerableFunction:new {
     func = "wizlab_zonguldrok_spawn_zombies",
@@ -1254,16 +1240,17 @@ lua_marker('A', summon_marker)
 lua_marker('A', wucad_marker)
 
 }}
-MARKER:     G = lua:props_marker {veto_fragmentation="veto", veto_disintegrate="veto", \
+MARKER:     G = lua:props_marker {veto_dig="veto", \
                                   veto_shatter="veto" }
-MARKER:     + = lua:props_marker {veto_fragmentation="veto", veto_disintegrate="veto", \
+MARKER:     + = lua:props_marker {veto_dig="veto", \
                                   veto_shatter="veto" }
-MARKER:     ' = lua:props_marker {veto_fragmentation="veto", veto_disintegrate="veto", \
+MARKER:     ' = lua:props_marker {veto_dig="veto", \
                                   veto_shatter="veto" }
-MARKER:     c = lua:props_marker {veto_fragmentation="veto", veto_disintegrate="veto", \
+MARKER:     c = lua:props_marker {veto_dig="veto", \
                                   veto_shatter="veto" }
-MARKER:     t = lua:props_marker {veto_fragmentation="veto", veto_disintegrate="veto", \
-                                  veto_shatter="veto", veto_fire="veto" }
+MARKER:     t = lua:props_marker {veto_dig="veto", \
+                                  veto_shatter="veto", \
+                                  veto_fire="veto" }
 :           wizlab_setup(_G)
 :           set_border_fill_type("tree")
 :           set_random_mon_list([[shadow w:6 / flayed ghost w:2 / hungry ghost w:2 / ]]
@@ -1694,9 +1681,9 @@ KITEM:      f = demon blade w:1 / demon whip w:1 / demon trident w:1 \
                 / any randart jewellery w:5 / cloak good_item w:5 \
                 / star_item w:25 / superb_item
 KITEM:      g = randbook disc:summoning
-NSUBST:     d = e / d, ' = 2:1 / 2:2 / 3=12...., " = 2:1 / 2:2 / 3=12....
-NSUBST:     ` = 2:1 / 3:2 / 3=12...., ; = 2:1 / 3:2 / 3=12....
-NSUBST:     3 = 1:3 / 2, ~ = 2:1 / 4:2 / 4 / 9=12.... / ., f = 1:g / f
+NSUBST:     d = e / d, ' = 4:1 / 3=12...., " = 4:1 / 3=12....
+NSUBST:     ` = 2:1 / 2:2 / 3=12...., ; = 2:1 / 2:2 / 3=12....
+NSUBST:     3 = 1:3 / 1, ~ = 2:1 / 3:2 / 4 / 9=12.... / ., f = 1:g / f
 {{
 set_random_mon_list("common demon w:200 / balrug / blizzard demon / \
                      cacodemon / green death / hell beast / hellion / \

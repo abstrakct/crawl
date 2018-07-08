@@ -609,7 +609,6 @@ bool unnotice_feature(const level_pos &pos)
 
 void display_overview()
 {
-    clrscr();
     string disp = overview_description_string(true);
     linebreak_string(disp, get_number_of_cols());
     int flags = MF_ANYPRINTABLE | MF_NOSELECT;
@@ -847,11 +846,12 @@ void remove_unique_annotation(monster* mons)
     for (auto i = auto_unique_annotations.begin();
          i != auto_unique_annotations.end();)
     {
-        // Only remove player ghosts from the current level: they can't
-        // change levels, but there may be a different ghost with the same
-        // unique_name elsewhere.
+        // Only remove player ghosts from the current level or that you can see
+        // (e.g. following you on stairs): there may be a different ghost with
+        // the same unique_name elsewhere.
         if ((mons->type != MONS_PLAYER_GHOST
-             || i->second == level_id::current())
+             || i->second == level_id::current()
+             || you.can_see(*mons))
             && i->first == name)
         {
             affected_levels.insert(i->second);

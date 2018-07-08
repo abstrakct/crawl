@@ -307,7 +307,7 @@ spret_type cast_chain_spell(spell_type spell_cast, int pow,
             case SPELL_CHAIN_OF_CHAOS:
                 beam.colour       = ETC_RANDOM;
                 beam.ench_power   = pow;
-                beam.damage       = calc_dice(3, 5 + pow / 2);
+                beam.damage       = calc_dice(3, 5 + pow / 6);
                 beam.real_flavour = BEAM_CHAOS;
                 beam.flavour      = BEAM_CHAOS;
             default:
@@ -317,6 +317,14 @@ spret_type cast_chain_spell(spell_type spell_cast, int pow,
         // Be kinder to the caster.
         if (target == caster->pos())
         {
+            if (spell_cast == SPELL_CHAIN_OF_CHAOS)
+            {
+                // This should not hit the caster, too scary as a player effect
+                // and too kind to the player as a monster effect.
+                // Mnoleg and Chaos Champions should not paralyse themselves.
+                beam.real_flavour = BEAM_VISUAL;
+                beam.flavour      = BEAM_VISUAL;
+            }
             if (!(beam.damage.num /= 2))
                 beam.damage.num = 1;
             if ((beam.damage.size /= 2) < 3)
@@ -767,6 +775,12 @@ void sonic_damage(bool scream)
 
 spret_type vampiric_drain(int pow, monster* mons, bool fail)
 {
+    if (you.hp == you.hp_max)
+    {
+        canned_msg(MSG_FULL_HEALTH);
+        return SPRET_ABORT;
+    }
+
     if (mons == nullptr || mons->submerged())
     {
         fail_check();
@@ -911,22 +925,6 @@ spret_type cast_airstrike(int pow, const dist &beam, bool fail)
         fail_check();
         canned_msg(MSG_SPELL_FIZZLES);
         return SPRET_SUCCESS; // still losing a turn
-    }
-
-    if (mons->res_wind())
-    {
-        if (mons->observable())
-        {
-            mprf("But air would do no harm to %s!",
-                 mons->name(DESC_THE).c_str());
-            return SPRET_ABORT;
-        }
-
-        fail_check();
-        mprf("The air twists arounds and harmlessly tosses %s around.",
-             mons->name(DESC_THE).c_str());
-        // Bailing out early, no need to upset the gods or the target.
-        return SPRET_SUCCESS; // you still did discover the invisible monster
     }
 
     god_conduct_trigger conducts[3];
@@ -2021,8 +2019,7 @@ spret_type cast_discharge(int pow, bool fail)
 
 bool setup_fragmentation_beam(bolt &beam, int pow, const actor *caster,
                               const coord_def target, bool quiet,
-                              const char **what, bool &should_destroy_wall,
-                              bool &hole)
+                              const char **what, bool &hole)
 {
     beam.flavour     = BEAM_FRAG;
     beam.glyph       = dchar_glyph(DCHAR_FIRED_BURST);
@@ -2170,18 +2167,6 @@ bool setup_fragmentation_beam(bolt &beam, int pow, const actor *caster,
     }
 
   do_terrain:
-
-    if (env.markers.property_at(target, MAT_ANY,
-                                "veto_fragmentation") == "veto")
-    {
-        if (caster->is_player() && !quiet)
-        {
-            mprf("%s seems to be unnaturally hard.",
-                 feature_description_at(target, false, DESC_THE, false).c_str());
-        }
-        return false;
-    }
-
     switch (grid)
     {
     // Stone and rock terrain
@@ -2203,19 +2188,6 @@ bool setup_fragmentation_beam(bolt &beam, int pow, const actor *caster,
 
         beam.name       = "blast of rock fragments";
         beam.damage.num = 3;
-
-        if (grid == DNGN_ORCISH_IDOL
-            || grid == DNGN_GRANITE_STATUE
-            || pow >= 35 && (grid == DNGN_ROCK_WALL
-                             || grid == DNGN_SLIMY_WALL
-                             || grid == DNGN_CLEAR_ROCK_WALL)
-               && one_chance_in(3)
-            || pow >= 50 && (grid == DNGN_STONE_WALL
-                             || grid == DNGN_CLEAR_STONE_WALL)
-               && one_chance_in(10))
-        {
-            should_destroy_wall = true;
-        }
         break;
 
     // Metal -- small but nasty explosion
@@ -2228,12 +2200,6 @@ bool setup_fragmentation_beam(bolt &beam, int pow, const actor *caster,
             *what = "iron grate";
         beam.name       = "blast of metal fragments";
         beam.damage.num = 4;
-
-        if (pow >= 75 && one_chance_in(20)
-            || grid == DNGN_GRATE)
-        {
-            should_destroy_wall = true;
-        }
         break;
 
     // Crystal
@@ -2243,9 +2209,6 @@ bool setup_fragmentation_beam(bolt &beam, int pow, const actor *caster,
         beam.ex_size    = 2;
         beam.name       = "blast of crystal shards";
         beam.damage.num = 4;
-
-        if (one_chance_in(3))
-            should_destroy_wall = true;
         break;
 
     // Stone doors and arches
@@ -2253,11 +2216,8 @@ bool setup_fragmentation_beam(bolt &beam, int pow, const actor *caster,
     case DNGN_CLOSED_DOOR:
     case DNGN_RUNED_DOOR:
     case DNGN_SEALED_DOOR:
-        // Doors always blow up, stone arches never do (would cause problems).
         if (what)
             *what = "door";
-        should_destroy_wall = true;
-
         // fall-through
     case DNGN_STONE_ARCH:
         if (what && *what == nullptr)
@@ -2291,25 +2251,20 @@ bool setup_fragmentation_beam(bolt &beam, int pow, const actor *caster,
 spret_type cast_fragmentation(int pow, const actor *caster,
                               const coord_def target, bool fail)
 {
-    bool should_destroy_wall = false;
     bool hole                = true;
     const char *what         = nullptr;
 
     bolt beam;
 
-    // should_destroy_wall is an output argument.
-    if (!setup_fragmentation_beam(beam, pow, caster, target, false, &what,
-                                  should_destroy_wall, hole))
-    {
+    if (!setup_fragmentation_beam(beam, pow, caster, target, false, &what,hole))
         return SPRET_ABORT;
-    }
 
     if (caster->is_player())
     {
         bolt tempbeam;
         bool temp;
         setup_fragmentation_beam(tempbeam, pow, caster, target, true, nullptr,
-                                 temp, temp);
+                                 temp);
         tempbeam.is_tracer = true;
         tempbeam.explode(false);
         if (tempbeam.beam_cancelled)
@@ -2327,8 +2282,6 @@ spret_type cast_fragmentation(int pow, const actor *caster,
     {
         if (you.see_cell(target))
             mprf("The %s shatters!", what);
-        if (should_destroy_wall)
-            destroy_wall(target);
     }
     else if (target == you.pos()) // You explode.
     {

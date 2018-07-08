@@ -47,6 +47,8 @@ void mpr_nojoin(msg_channel_type channel, string text)
 
 static bool _ends_in_punctuation(const string& text)
 {
+    if (text.size() == 0)
+        return false;
     switch (text[text.size() - 1])
     {
     case '.':
@@ -1100,7 +1102,7 @@ int channel_to_colour(msg_channel_type channel, int param)
     return colour_msg(channel_to_msgcol(channel, param));
 }
 
-static void do_message_print(msg_channel_type channel, int param, bool cap,
+void do_message_print(msg_channel_type channel, int param, bool cap,
                              bool nojoin, const char *format, va_list argp)
 {
     va_list ap;

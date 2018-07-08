@@ -54,6 +54,7 @@
 #include "nearby-danger.h"
 #include "notes.h"
 #include "output.h"
+#include "player-equip.h"
 #include "player-save-info.h"
 #include "player-stats.h"
 #include "potion.h"
@@ -261,28 +262,40 @@ bool check_moveto_terrain(const coord_def& p, const string &move_verb,
     return true;
 }
 
+bool check_moveto_exclusions(const vector<coord_def> &areas,
+                             const string &move_verb,
+                             bool *prompted)
+{
+    if (is_excluded(you.pos()) || crawl_state.disables[DIS_CONFIRMATIONS])
+        return true;
+
+    int count = 0;
+    for (auto p : areas)
+    {
+        if (is_excluded(p) && !is_stair_exclusion(p))
+            count++;
+    }
+    if (count == 0)
+        return true;
+    const string prompt = make_stringf((count == (int) areas.size() ?
+                    "Really %s into a travel-excluded area?" :
+                    "You might %s into a travel-excluded area, are you sure?"),
+                              move_verb.c_str());
+
+    if (prompted)
+        *prompted = true;
+    if (!yesno(prompt.c_str(), false, 'n'))
+    {
+        canned_msg(MSG_OK);
+        return false;
+    }
+    return true;
+}
+
 bool check_moveto_exclusion(const coord_def& p, const string &move_verb,
                             bool *prompted)
 {
-    string prompt;
-
-    if (is_excluded(p)
-        && !is_stair_exclusion(p)
-        && !is_excluded(you.pos())
-        && !crawl_state.disables[DIS_CONFIRMATIONS])
-    {
-        if (prompted)
-            *prompted = true;
-        prompt = make_stringf("Really %s into a travel-excluded area?",
-                              move_verb.c_str());
-
-        if (!yesno(prompt.c_str(), false, 'n'))
-        {
-            canned_msg(MSG_OK);
-            return false;
-        }
-    }
-    return true;
+    return check_moveto_exclusions({p}, move_verb, prompted);
 }
 
 bool check_moveto(const coord_def& p, const string &move_verb, const string &msg)
@@ -1144,13 +1157,16 @@ int player_mp_regen()
     return regen_amount;
 }
 
-// Amulet of regeneration needs to be worn while at full health before it begins
-// to function.
-void update_regen_amulet_attunement()
+// Some amulets need to be worn while at full health before they begin to
+// function.
+void update_amulet_attunement_by_health()
 {
+    // amulet of regeneration
+    // You must be wearing the amulet and able to regenerate to get benefits.
     if (you.wearing(EQ_AMULET, AMU_REGENERATION)
         && you.get_mutation_level(MUT_NO_REGENERATION) == 0)
     {
+        // If you hit max HP, turn on the amulet.
         if (you.hp == you.hp_max
             && you.props[REGEN_AMULET_ACTIVE].get_int() == 0)
         {
@@ -1161,6 +1177,20 @@ void update_regen_amulet_attunement()
     }
     else
         you.props[REGEN_AMULET_ACTIVE] = 0;
+
+    // amulet of the acrobat
+    if (you.wearing(EQ_AMULET, AMU_ACROBAT))
+    {
+        if (you.hp == you.hp_max
+            && you.props[ACROBAT_AMULET_ACTIVE].get_int() == 0)
+        {
+            you.props[ACROBAT_AMULET_ACTIVE] = 1;
+            mpr("Your amulet attunes itself to your body. You feel like "
+                "doing cartwheels.");
+        }
+    }
+    else
+        you.props[ACROBAT_AMULET_ACTIVE] = 0;
 }
 
 // Amulet of magic regeneration needs to be worn while at full magic before it
@@ -1929,9 +1959,6 @@ int player_movement_speed()
     if (you.duration[DUR_GRASPING_ROOTS])
         mv += 3;
 
-    if (you.duration[DUR_ICY_ARMOUR])
-        ++mv; // as ponderous
-
     // Mutations: -2, -3, -4, unless innate and shapechanged.
     if (int fast = you.get_mutation_level(MUT_FAST))
         mv -= fast + 1;
@@ -2037,6 +2064,16 @@ bool player_is_shapechanged()
     return true;
 }
 
+void update_acrobat_status()
+{
+    if (you.props[ACROBAT_AMULET_ACTIVE].get_int() != 1)
+        return;
+
+    you.duration[DUR_ACROBAT] = you.time_taken;
+    you.props[LAST_ACTION_WAS_MOVE_OR_REST_KEY] = true;
+    you.redraw_evasion = true;
+}
+
 // An evasion factor based on the player's body size, smaller == higher
 // evasion size factor.
 static int _player_evasion_size_factor(bool base = false)
@@ -2053,6 +2090,7 @@ int player_shield_racial_factor()
     return max(1, 5 + (you.species == SP_FORMICID ? -2 // Same as trolls/centaurs/etc.
                                                   : _player_evasion_size_factor(true)));
 }
+
 
 // The total EV penalty to the player for all their worn armour items
 // with a base EV penalty (i.e. EV penalty as a base armour property,
@@ -2100,6 +2138,11 @@ static int _player_evasion_bonuses()
     // transformation penalties/bonuses not covered by size alone:
     if (you.get_mutation_level(MUT_SLOW_REFLEXES))
         evbonus -= you.get_mutation_level(MUT_SLOW_REFLEXES) * 5;
+
+    // If you have an active amulet of the acrobat and just moved, get massive
+    // EV bonus.
+    if (acrobat_boost_visible())
+        evbonus += 15;
 
     return evbonus;
 }
@@ -2350,8 +2393,8 @@ void forget_map(bool rot)
             continue;
 
         env.map_knowledge(p).clear();
-        if (env.map_forgotten.get())
-            (*env.map_forgotten.get())(p).clear();
+        if (env.map_forgotten)
+            (*env.map_forgotten)(p).clear();
         StashTrack.update_stash(p);
 #ifdef USE_TILE
         tile_forget_map(p);
@@ -3389,7 +3432,7 @@ void display_char_status()
     status_info inf;
     for (unsigned i = 0; i <= STATUS_LAST_STATUS; ++i)
     {
-        if (fill_status_info(i, &inf) && !inf.long_text.empty())
+        if (fill_status_info(i, inf) && !inf.long_text.empty())
             mpr(inf.long_text);
     }
     string cinfo = _constriction_description();
@@ -4170,6 +4213,9 @@ void paralyse_player(string source, int amount)
 bool poison_player(int amount, string source, string source_aux, bool force)
 {
     ASSERT(!crawl_state.game_is_arena());
+
+    if (crawl_state.disables[DIS_AFFLICTIONS])
+        return false;
 
     if (you.duration[DUR_DIVINE_STAMINA] > 0)
     {
@@ -5043,6 +5089,7 @@ player::player()
     runes.reset();
     obtainable_runes = 15;
 
+    spell_library.reset();
     spells.init(SPELL_NO_SPELL);
     old_vehumet_gifts.clear();
     spell_no        = 0;
@@ -5120,8 +5167,6 @@ player::player()
 
     magic_contamination = 0;
 
-    had_book.reset();
-    seen_spell.reset();
     seen_weapon.init(0);
     seen_armour.init(0);
     seen_misc.reset();
@@ -5210,8 +5255,7 @@ player::player()
     shield_blocks       = 0;
 
     abyss_speed         = 0;
-    for (int i = 0; i < NUM_SEEDS; i++)
-        game_seeds[i] = get_uint32();
+    game_seed = get_uint32();
 
     old_hunger          = hunger;
 
@@ -6205,7 +6249,7 @@ bool player::res_torment() const
     return player_res_torment();
 }
 
-bool player::res_wind() const
+bool player::res_tornado() const
 {
     // Full control of the winds around you can negate a hostile tornado.
     return duration[DUR_TORNADO] ? 1 : 0;

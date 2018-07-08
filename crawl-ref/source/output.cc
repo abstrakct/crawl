@@ -36,6 +36,7 @@
 #include "misc.h"
 #include "mutation.h"
 #include "notes.h"
+#include "player-equip.h"
 #include "player-stats.h"
 #include "prompt.h"
 #include "religion.h"
@@ -503,7 +504,7 @@ static bool _boosted_ac()
 
 static bool _boosted_ev()
 {
-    return you.duration[DUR_AGILITY];
+    return you.duration[DUR_AGILITY] || acrobat_boost_visible();
 }
 
 static bool _boosted_sh()
@@ -992,7 +993,7 @@ static void _add_status_light_to_out(int i, vector<status_light>& out)
 {
     status_info inf;
 
-    if (fill_status_info(i, &inf) && !inf.light_text.empty())
+    if (fill_status_info(i, inf) && !inf.light_text.empty())
     {
         status_light sl(inf.light_colour, inf.light_text);
         out.push_back(sl);
@@ -1525,6 +1526,8 @@ void redraw_screen(bool show_updates)
         viewwindow(show_updates);
         display_message_window();
     }
+    // normalize the cursor region independent of messages_at_top
+    set_cursor_region(GOTO_MSG);
 
     update_screen();
 }
@@ -2662,7 +2665,7 @@ string _status_mut_rune_list(int sw)
     status_info inf;
     for (unsigned i = 0; i <= STATUS_LAST_STATUS; ++i)
     {
-        if (fill_status_info(i, &inf) && !inf.short_text.empty())
+        if (fill_status_info(i, inf) && !inf.short_text.empty())
             status.emplace_back(inf.short_text);
     }
 

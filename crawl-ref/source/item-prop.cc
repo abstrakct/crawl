@@ -738,7 +738,6 @@ const set<pair<object_class_type, int> > removed_items =
 #if TAG_MAJOR_VERSION == 34
     { OBJ_JEWELLERY, AMU_CONTROLLED_FLIGHT },
     { OBJ_JEWELLERY, AMU_CONSERVATION },
-    { OBJ_JEWELLERY, AMU_DISMISSAL },
     { OBJ_JEWELLERY, RING_REGENERATION },
     { OBJ_JEWELLERY, RING_SUSTAIN_ATTRIBUTES },
     { OBJ_JEWELLERY, RING_TELEPORT_CONTROL },
@@ -1631,18 +1630,20 @@ bool is_offensive_wand(const item_def& item)
     switch (item.sub_type)
     {
     // Monsters don't use those, so no need to warn the player about them.
-    case WAND_ENSLAVEMENT:
+    case WAND_CLOUDS:
+    case WAND_ICEBLAST:
     case WAND_RANDOM_EFFECTS:
+    case WAND_SCATTERSHOT:
+    // Monsters use it, but it's not an offensive wand
     case WAND_DIGGING:
         return false;
 
+    case WAND_ENSLAVEMENT:
     case WAND_FLAME:
     case WAND_PARALYSIS:
-    case WAND_ICEBLAST:
     case WAND_POLYMORPH:
     case WAND_ACID:
     case WAND_DISINTEGRATION:
-    case WAND_CLOUDS:
         return true;
     }
     return false;
@@ -2728,10 +2729,12 @@ bool gives_ability(const item_def &item)
         if (artefact_property(item, static_cast<artefact_prop_type>(rap)))
             return true;
 
-#if TAG_MAJOR_VERSION == 34
-    if (artefact_property(item, ARTP_FOG))
+    // Unrands that grant an evokable ability.
+    if (is_unrandom_artefact(item, UNRAND_THIEF)
+        || is_unrandom_artefact(item, UNRAND_RATSKIN_CLOAK))
+    {
         return true;
-#endif
+    }
 
     return false;
 }

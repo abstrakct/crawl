@@ -363,10 +363,6 @@ static void _give_basic_knowledge()
 {
     identify_inventory();
 
-    for (const item_def& i : you.inv)
-        if (i.base_type == OBJ_BOOKS)
-            mark_had_book(i);
-
     // Recognisable by appearance.
     you.type_ids[OBJ_POTIONS][POT_BLOOD] = true;
 
@@ -463,6 +459,10 @@ static void _setup_generic(const newgame_def& ng)
     you.props[REMOVED_DEAD_SHOPS_KEY] = true;
 #endif
 
+    // Needs to happen before we give the player items, so that it's safe to
+    // check whether those items need to be removed from their shopping list.
+    shopping_list.refresh();
+
     you.your_name  = ng.name;
     you.species    = ng.species;
     you.char_class = ng.job;
@@ -505,6 +505,9 @@ static void _setup_generic(const newgame_def& ng)
         _setup_tutorial_miscs();
 
     _give_basic_knowledge();
+
+    // Must be after _give_basic_knowledge
+    add_held_books_to_library();
 
     initialise_item_descriptions();
 
